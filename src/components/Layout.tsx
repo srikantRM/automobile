@@ -71,6 +71,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     service: [
       { id: 'jobcards', label: 'Job Card Form', icon: Receipt },
       { id: 'assign', label: 'Assign Mechanic', icon: UserPlus },
+      { id: 'mechanics', label: 'Mechanic Master', icon: Users },
       { id: 'status', label: 'Status Update', icon: Clock },
       { id: 'billing', label: 'Bill Form', icon: Receipt },
       { id: 'reminders', label: 'Vehicle Reminder', icon: Bell },
