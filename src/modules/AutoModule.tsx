@@ -69,6 +69,7 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
       } else {
         const newSupplier: Supplier = {
           id: Math.random().toString(36).substr(2, 9),
+          supplierCode: data.supplierCode as string || `S-AUTO-${(suppliers.length + 1).toString().padStart(3, '0')}`,
           name: data.name as string,
           contactNo: data.contactNo as string,
           gstNo: data.gstNo as string,

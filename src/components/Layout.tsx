@@ -101,7 +101,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
               <span className="text-primary font-bold text-xl">R</span>
             </div>
-            <span className="font-bold text-xl tracking-tight">RedLink</span>
+            <span className="font-bold text-xl tracking-tight">SkyBird</span>
           </div>
         )}
         <button 

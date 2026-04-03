@@ -2,21 +2,26 @@ export type ModuleType = 'dashboard' | 'inverter' | 'automobiles' | 'service' | 
 
 export interface InverterProduct {
   id: string;
+  productCode: string;
+  barcode: string;
   name: string;
   model: string;
-  serialNo: string;
   capacity: string;
   guarantee: string;
   gst: number;
   warranty: string;
+  hsnCode: string;
   extra: string;
   servicePeriod: number; // in months
   minQty: number;
   stock: number;
+  sellingPrice?: number;
+  purchasePrice?: number;
 }
 
 export interface Customer {
   id: string;
+  customerCode: string;
   name: string;
   phone: string;
   address: string;
@@ -24,6 +29,7 @@ export interface Customer {
 
 export interface Supplier {
   id: string;
+  supplierCode: string;
   name: string;
   address: string;
   contactNo: string;

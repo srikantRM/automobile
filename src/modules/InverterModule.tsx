@@ -53,7 +53,7 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
   React.useEffect(() => {
     setSelectedReport(null);
     setOrderItems([]);
-    setCurrentOrderItem({ productId: '', model: '', hsnCode: '', quantity: 0, rate: 0 });
+    setCurrentOrderItem({ productId: '', productCode: '', barcode: '', model: '', hsnCode: '', quantity: 0, rate: 0, stock: 0 });
   }, [activeTab]);
 
   // Mock Data for Visuals
@@ -78,13 +78,17 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
 
   // Mock Data
   const [products, setProducts] = useState<InverterProduct[]>([
-    { id: '1', name: 'Exide Invamaster', model: 'IMST1500', serialNo: 'EX123456', capacity: '150Ah', guarantee: '36 Months', gst: 18, warranty: '12 Months', extra: '', servicePeriod: 6, minQty: 5, stock: 12 },
-    { id: '2', name: 'Luminous Red Charge', model: 'RC18000', serialNo: 'LM987654', capacity: '150Ah', guarantee: '42 Months', gst: 18, warranty: '18 Months', extra: '', servicePeriod: 6, minQty: 3, stock: 2 },
+    { id: '1', productCode: 'P001', barcode: '123456789012', name: 'Exide Invamaster', model: 'IMST1500', capacity: '150Ah', guarantee: '36 Months', gst: 18, warranty: '12 Months', hsnCode: '8507', extra: '', servicePeriod: 6, minQty: 5, stock: 12, sellingPrice: 15600, purchasePrice: 12500 },
+    { id: '2', productCode: 'P002', barcode: '123456789013', name: 'Luminous Red Charge', model: 'RC18000', capacity: '150Ah', guarantee: '42 Months', gst: 18, warranty: '18 Months', hsnCode: '8507', extra: '', servicePeriod: 6, minQty: 3, stock: 2, sellingPrice: 18500, purchasePrice: 14500 },
   ]);
 
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([
+    { id: '1', customerCode: 'C001', name: 'John Doe', phone: '9876543210', address: '123 Main St' },
+  ]);
 
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([
+    { id: '1', supplierCode: 'S001', name: 'Battery World', address: '456 Market Rd', contactNo: '9988776655', gstNo: '27AAAAA0000A1Z5', city: 'Mumbai', state: 'Maharashtra', email: 'bw@example.com', balance: 45000 },
+  ]);
 
   const [purchaseOrders, setPurchaseOrders] = useState<any[]>([
     { id: '1', orderNo: 'PO-001', date: '2024-03-27', supplier: 'Battery World', model: 'IMST1500', total: 45000, status: 'Pending' }
@@ -109,13 +113,15 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
       } else {
         const newProduct: InverterProduct = {
           id: Math.random().toString(36).substr(2, 9),
+          productCode: data.productCode as string || `P${(products.length + 1).toString().padStart(3, '0')}`,
+          barcode: data.barcode as string,
           name: data.name as string,
           model: data.model as string,
-          serialNo: data.serialNo as string,
           capacity: data.capacity as string,
           guarantee: data.guarantee as string,
           gst: Number(data.gst),
           warranty: data.warranty as string,
+          hsnCode: data.hsnCode as string,
           extra: data.extra as string,
           servicePeriod: Number(data.servicePeriod),
           minQty: Number(data.minQty),
@@ -129,6 +135,7 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
       } else {
         const newCustomer: Customer = {
           id: Math.random().toString(36).substr(2, 9),
+          customerCode: data.customerCode as string || `C${(customers.length + 1).toString().padStart(3, '0')}`,
           name: data.name as string,
           phone: data.phone as string,
           address: data.address as string,
@@ -141,6 +148,7 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
       } else {
         const newSupplier: Supplier = {
           id: Math.random().toString(36).substr(2, 9),
+          supplierCode: data.supplierCode as string || `S${(suppliers.length + 1).toString().padStart(3, '0')}`,
           name: data.name as string,
           address: data.address as string,
           contactNo: data.contactNo as string,
@@ -256,28 +264,35 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
   };
 
   const [salesForm, setSalesForm] = useState({ quantity: 0, rate: 0 });
-  const [orderItems, setOrderItems] = useState<{ productId: string, name: string, model: string, hsnCode?: string, quantity: number, rate: number }[]>([]);
-  const [currentOrderItem, setCurrentOrderItem] = useState({ productId: '', model: '', hsnCode: '', quantity: 0, rate: 0 });
+  const [orderItems, setOrderItems] = useState<{ productId: string, productCode: string, barcode?: string, name: string, model: string, hsnCode?: string, quantity: number, rate: number, stock?: number }[]>([]);
+  const [currentOrderItem, setCurrentOrderItem] = useState({ productId: '', productCode: '', barcode: '', model: '', hsnCode: '', quantity: 0, rate: 0, stock: 0 });
+  const currentOrderItemRef = React.useRef(currentOrderItem);
+  
+  const updateCurrentOrderItem = (updated: any) => {
+    setCurrentOrderItem(updated);
+    currentOrderItemRef.current = updated;
+  };
 
   const renderContent = () => {
     switch (activeTab) {
       case 'products':
         const filteredProducts = products.filter(p => 
           p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.model.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.serialNo.toLowerCase().includes(searchQuery.toLowerCase())
+          p.model.toLowerCase().includes(searchQuery.toLowerCase())
         );
         return (
           <div className="space-y-8">
             <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-6">
               <h3 className="font-bold text-gray-800 border-b pb-4">Add New Product</h3>
               <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+                <Input label="Product Code" name="productCode" placeholder="Ex: P001" defaultValue={`P${(products.length + 1).toString().padStart(3, '0')}`} required />
+                <Input label="Barcode" name="barcode" placeholder="Scan or Enter Barcode" required />
                 <Input label="Product Name" name="name" placeholder="Ex: Exide Invamaster" required />
                 <Input label="Model" name="model" placeholder="Ex: IMST1500" required />
-                <Input label="Serial No" name="serialNo" placeholder="Enter Serial No" required />
                 <Input label="Capacity" name="capacity" placeholder="Ex: 150Ah" required />
                 <Input label="Guarantee" name="guarantee" placeholder="Ex: 36 Months" required />
                 <Input label="Warranty" name="warranty" placeholder="Ex: 12 Months" required />
+                <Input label="HSN Code" name="hsnCode" placeholder="Ex: 8507" required />
                 <Input label="GST (%)" name="gst" type="number" defaultValue="18" required />
                 <Input label="Min Qty" name="minQty" type="number" defaultValue="5" required />
                 <div className="md:col-span-4 flex justify-end">
@@ -300,9 +315,11 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
               </div>
               <DataTable 
                 columns={[
+                  { key: 'productCode', label: 'Product Code' },
+                  { key: 'barcode', label: 'Barcode' },
                   { key: 'name', label: 'Product Name' },
                   { key: 'model', label: 'Model' },
-                  { key: 'serialNo', label: 'Serial No' },
+                  { key: 'hsnCode', label: 'HSN Code' },
                   { key: 'capacity', label: 'Capacity' },
                   { key: 'stock', label: 'Stock', render: (val) => (
                     <span className={cn("font-bold", val < 5 ? "text-red-600" : "text-green-600")}>{val}</span>
@@ -331,11 +348,12 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
           <div className="space-y-8">
             <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-6">
               <h3 className="font-bold text-gray-800 border-b pb-4">Add New Customer</h3>
-              <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+              <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+                <Input label="Customer Code" name="customerCode" placeholder="Ex: C001" defaultValue={`C${(customers.length + 1).toString().padStart(3, '0')}`} required />
                 <Input label="Customer Name" name="name" placeholder="Enter Name" required />
                 <Input label="Phone Number" name="phone" placeholder="Enter Phone" required />
                 <Input label="Address" name="address" placeholder="Enter Address" required />
-                <div className="md:col-span-3 flex justify-end">
+                <div className="md:col-span-4 flex justify-end">
                   <Button type="submit" icon={<Plus size={18} />}>Save Customer</Button>
                 </div>
               </form>
@@ -355,6 +373,7 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
               </div>
               <DataTable 
                 columns={[
+                  { key: 'customerCode', label: 'Customer Code' },
                   { key: 'name', label: 'Customer Name' },
                   { key: 'phone', label: 'Phone No' },
                   { key: 'address', label: 'Address' },
@@ -381,17 +400,18 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
           <div className="space-y-8">
             <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-6">
               <h3 className="font-bold text-gray-800 border-b pb-4">Add New Supplier</h3>
-              <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+              <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+                <Input label="Supplier Code" name="supplierCode" placeholder="Ex: S001" defaultValue={`S${(suppliers.length + 1).toString().padStart(3, '0')}`} required />
                 <Input label="Supplier Name" name="name" placeholder="Enter Name" required />
                 <Input label="Contact Number" name="contactNo" placeholder="Enter Contact No" required />
                 <Input label="GST Number" name="gstNo" placeholder="Enter GST No" required />
                 <Input label="City" name="city" placeholder="Enter City" required />
                 <Input label="State" name="state" placeholder="Enter State" required />
                 <Input label="Email" name="email" type="email" placeholder="Enter Email" required />
-                <div className="md:col-span-3">
+                <div className="md:col-span-4">
                   <Input label="Address" name="address" placeholder="Enter Full Address" required />
                 </div>
-                <div className="md:col-span-3 flex justify-end">
+                <div className="md:col-span-4 flex justify-end">
                   <Button type="submit" icon={<Plus size={18} />}>Save Supplier</Button>
                 </div>
               </form>
@@ -411,6 +431,7 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
               </div>
               <DataTable 
                 columns={[
+                  { key: 'supplierCode', label: 'Supplier Code' },
                   { key: 'name', label: 'Supplier Name' },
                   { key: 'contactNo', label: 'Contact No' },
                   { key: 'gstNo', label: 'GST Number' },
@@ -435,24 +456,29 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
         );
 
         const handleAddSaleItem = () => {
-          if (!currentOrderItem.productId || currentOrderItem.quantity <= 0 || currentOrderItem.rate <= 0) {
+          const item = currentOrderItemRef.current;
+          if (!item.productId || item.quantity <= 0 || item.rate <= 0) {
             alert('Please select a product and enter valid quantity and rate.');
             return;
           }
-          const product = products.find(p => p.id === currentOrderItem.productId);
+          const product = products.find(p => p.id === item.productId);
           if (product) {
-            if (product.stock < currentOrderItem.quantity) {
+            if (product.stock < item.quantity) {
               alert(`Insufficient stock! Available: ${product.stock}`);
               return;
             }
-            setOrderItems([...orderItems, {
+            const newItem = {
               productId: product.id,
+              productCode: product.productCode,
+              barcode: product.barcode,
               name: product.name,
-              model: currentOrderItem.model || product.model,
-              quantity: currentOrderItem.quantity,
-              rate: currentOrderItem.rate
-            }]);
-            setCurrentOrderItem({ productId: '', model: '', quantity: 0, rate: 0 });
+              model: item.model || product.model,
+              hsnCode: item.hsnCode || product.hsnCode,
+              quantity: item.quantity,
+              rate: item.rate
+            };
+            setOrderItems([...orderItems, newItem]);
+            updateCurrentOrderItem({ productId: '', productCode: '', barcode: '', model: '', hsnCode: '', quantity: 0, rate: 0, stock: 0 });
           }
         };
 
@@ -483,40 +509,97 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
 
                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-4">
                   <h4 className="text-sm font-bold text-gray-600 uppercase tracking-wider">Add Products</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
+                    <Input 
+                      label="Barcode" 
+                      value={currentOrderItem.barcode}
+                      onChange={(e) => {
+                        const val = e.target.value.trim();
+                        const p = products.find(prod => prod.barcode === val);
+                        if (p) {
+                          updateCurrentOrderItem({
+                            ...currentOrderItem,
+                            productId: p.id,
+                            productCode: p.productCode,
+                            barcode: p.barcode,
+                            model: p.model,
+                            hsnCode: p.hsnCode,
+                            stock: p.stock,
+                            quantity: currentOrderItem.quantity || 1,
+                            rate: p.sellingPrice || 0
+                          });
+                        } else {
+                          updateCurrentOrderItem({ ...currentOrderItem, barcode: e.target.value });
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddSaleItem();
+                        }
+                      }}
+                    />
                     <div className="md:col-span-1">
                       <Select 
                         label="Select Product" 
                         value={currentOrderItem.productId}
                         onChange={(e) => {
                           const p = products.find(prod => prod.id === e.target.value);
-                          setCurrentOrderItem({ ...currentOrderItem, productId: e.target.value, model: p ? p.model : '' });
+                          updateCurrentOrderItem({ 
+                            ...currentOrderItem, 
+                            productId: e.target.value, 
+                            productCode: p ? p.productCode : '',
+                            barcode: p ? p.barcode : '',
+                            model: p ? p.model : '',
+                            hsnCode: p ? p.hsnCode : '',
+                            stock: p ? p.stock : 0,
+                            quantity: currentOrderItem.quantity || 1,
+                            rate: p ? (p.sellingPrice || 0) : 0
+                          });
                         }}
                       >
                         <option value="">Select Product</option>
-                        {products.map(p => <option key={p.id} value={p.id}>{p.name} ({p.stock} in stock)</option>)}
+                        {products.map(p => <option key={p.id} value={p.id}>{p.name} ({p.barcode})</option>)}
                       </Select>
+                      {currentOrderItem.productId && (
+                        <p className="text-[10px] font-bold text-primary mt-1">Stock Available: {currentOrderItem.stock}</p>
+                      )}
                     </div>
                     <Input 
                       label="Model" 
                       value={currentOrderItem.model}
-                      onChange={(e) => setCurrentOrderItem({ ...currentOrderItem, model: e.target.value })}
+                      onChange={(e) => updateCurrentOrderItem({ ...currentOrderItem, model: e.target.value })}
+                    />
+                    <Input 
+                      label="HSN Code" 
+                      value={currentOrderItem.hsnCode}
+                      onChange={(e) => updateCurrentOrderItem({ ...currentOrderItem, hsnCode: e.target.value })}
                     />
                     <Input 
                       label="Quantity" 
                       type="number" 
                       value={currentOrderItem.quantity || ''}
-                      onChange={(e) => setCurrentOrderItem({ ...currentOrderItem, quantity: Number(e.target.value) })}
+                      onChange={(e) => updateCurrentOrderItem({ ...currentOrderItem, quantity: Number(e.target.value) })}
                     />
                     <Input 
                       label="Rate" 
                       type="number" 
                       value={currentOrderItem.rate || ''}
-                      onChange={(e) => setCurrentOrderItem({ ...currentOrderItem, rate: Number(e.target.value) })}
+                      onChange={(e) => updateCurrentOrderItem({ ...currentOrderItem, rate: Number(e.target.value) })}
                     />
-                    <Button type="button" variant="secondary" onClick={handleAddSaleItem} className="w-full">
-                      Add to Invoice
-                    </Button>
+                    {currentOrderItem.productId && (
+                      <div className="col-span-full grid grid-cols-2 md:grid-cols-4 gap-4 text-[11px] bg-blue-50 p-3 rounded-xl border border-blue-100 mt-2">
+                        <div><span className="font-bold text-blue-600 uppercase">Product Code:</span> {currentOrderItem.productCode}</div>
+                        <div><span className="font-bold text-blue-600 uppercase">Capacity:</span> {products.find(p => p.id === currentOrderItem.productId)?.capacity}</div>
+                        <div><span className="font-bold text-blue-600 uppercase">Guarantee:</span> {products.find(p => p.id === currentOrderItem.productId)?.guarantee}</div>
+                        <div><span className="font-bold text-blue-600 uppercase">Warranty:</span> {products.find(p => p.id === currentOrderItem.productId)?.warranty}</div>
+                      </div>
+                    )}
+                    <div className="md:col-span-6 flex justify-end">
+                      <Button type="button" variant="secondary" onClick={handleAddSaleItem} className="w-full md:w-auto px-12">
+                        Add to Invoice
+                      </Button>
+                    </div>
                   </div>
 
                   {orderItems.length > 0 && (
@@ -524,7 +607,10 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
                       <table className="w-full text-sm">
                         <thead className="bg-gray-50 border-b">
                           <tr>
+                            <th className="px-4 py-2 text-center">Barcode</th>
+                            <th className="px-4 py-2 text-center">Product Code</th>
                             <th className="px-4 py-2 text-left">Product</th>
+                            <th className="px-4 py-2 text-center">HSN Code</th>
                             <th className="px-4 py-2 text-center">Qty</th>
                             <th className="px-4 py-2 text-right">Rate</th>
                             <th className="px-4 py-2 text-right">Total</th>
@@ -534,7 +620,10 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
                         <tbody>
                           {orderItems.map((item, idx) => (
                             <tr key={idx} className="border-b last:border-0">
+                              <td className="px-4 py-2 text-center">{item.barcode || '-'}</td>
+                              <td className="px-4 py-2 text-center">{item.productCode}</td>
                               <td className="px-4 py-2">{item.name} ({item.model})</td>
+                              <td className="px-4 py-2 text-center">{item.hsnCode || '-'}</td>
                               <td className="px-4 py-2 text-center">{item.quantity}</td>
                               <td className="px-4 py-2 text-right">{formatCurrency(item.rate)}</td>
                               <td className="px-4 py-2 text-right font-bold">{formatCurrency(item.quantity * item.rate)}</td>
@@ -548,17 +637,22 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
                         </tbody>
                         <tfoot className="bg-gray-50 font-bold">
                           <tr className="border-t">
-                            <td colSpan={3} className="px-4 py-2 text-right">Subtotal:</td>
+                            <td colSpan={7} className="px-4 py-2 text-right">Subtotal:</td>
                             <td className="px-4 py-2 text-right">{formatCurrency(subtotal)}</td>
                             <td></td>
                           </tr>
                           <tr>
-                            <td colSpan={3} className="px-4 py-2 text-right">GST (18%):</td>
-                            <td className="px-4 py-2 text-right">{formatCurrency(subtotal * 0.18)}</td>
+                            <td colSpan={7} className="px-4 py-2 text-right text-gray-600">CGST (9%):</td>
+                            <td className="px-4 py-2 text-right text-gray-600">{formatCurrency(subtotal * 0.09)}</td>
+                            <td></td>
+                          </tr>
+                          <tr>
+                            <td colSpan={7} className="px-4 py-2 text-right text-gray-600">SGST (9%):</td>
+                            <td className="px-4 py-2 text-right text-gray-600">{formatCurrency(subtotal * 0.09)}</td>
                             <td></td>
                           </tr>
                           <tr className="text-lg">
-                            <td colSpan={3} className="px-4 py-2 text-right">Grand Total:</td>
+                            <td colSpan={7} className="px-4 py-2 text-right">Grand Total:</td>
                             <td className="px-4 py-2 text-right text-primary">{formatCurrency(subtotal * 1.18)}</td>
                             <td></td>
                           </tr>
@@ -621,20 +715,27 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
         );
 
         const handleAddOrderItem = () => {
-          if (!currentOrderItem.productId || currentOrderItem.quantity <= 0 || currentOrderItem.rate <= 0) {
+          const item = currentOrderItemRef.current;
+          if (!item.productId || item.quantity <= 0 || item.rate <= 0) {
             alert('Please select a product and enter valid quantity and rate.');
             return;
           }
-          const product = products.find(p => p.id === currentOrderItem.productId);
+          const product = products.find(p => p.id === item.productId);
           if (product) {
-            setOrderItems([...orderItems, {
+            const newItem = {
               productId: product.id,
+              productCode: product.productCode,
+              barcode: product.barcode,
               name: product.name,
-              model: currentOrderItem.model || product.model,
-              quantity: currentOrderItem.quantity,
-              rate: currentOrderItem.rate
-            }]);
-            setCurrentOrderItem({ productId: '', model: '', quantity: 0, rate: 0 });
+              model: item.model || product.model,
+              hsnCode: item.hsnCode || product.hsnCode,
+              quantity: item.quantity,
+              rate: item.rate
+            };
+            setOrderItems([...orderItems, newItem]);
+            updateCurrentOrderItem({ productId: '', productCode: '', barcode: '', model: '', hsnCode: '', quantity: 0, rate: 0, stock: 0 });
+          } else {
+            console.error('Product not found:', item.productId);
           }
         };
 
@@ -658,37 +759,84 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
 
                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-4">
                   <h4 className="text-sm font-bold text-gray-600 uppercase tracking-wider">Add Products</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
+                    <Input 
+                      label="Barcode" 
+                      value={currentOrderItem.barcode}
+                      onChange={(e) => {
+                        const val = e.target.value.trim();
+                        const p = products.find(prod => prod.barcode === val);
+                        if (p) {
+                          updateCurrentOrderItem({
+                            ...currentOrderItem,
+                            productId: p.id,
+                            productCode: p.productCode,
+                            barcode: p.barcode,
+                            model: p.model,
+                            hsnCode: p.hsnCode,
+                            stock: p.stock,
+                            quantity: currentOrderItem.quantity || 1,
+                            rate: p.purchasePrice || 0
+                          });
+                        } else {
+                          updateCurrentOrderItem({ ...currentOrderItem, barcode: e.target.value });
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddOrderItem();
+                        }
+                      }}
+                    />
                     <div className="md:col-span-1">
                       <Select 
                         label="Select Product" 
                         value={currentOrderItem.productId}
                         onChange={(e) => {
                           const p = products.find(prod => prod.id === e.target.value);
-                          setCurrentOrderItem({ ...currentOrderItem, productId: e.target.value, model: p ? p.model : '' });
+                          updateCurrentOrderItem({ 
+                            ...currentOrderItem, 
+                            productId: e.target.value, 
+                            productCode: p ? p.productCode : '',
+                            barcode: p ? p.barcode : '',
+                            model: p ? p.model : '',
+                            hsnCode: p ? p.hsnCode : '',
+                            stock: p ? p.stock : 0,
+                            quantity: currentOrderItem.quantity || 1,
+                            rate: p ? (p.purchasePrice || 0) : 0
+                          });
                         }}
                       >
                         <option value="">Select Product</option>
-                        {products.map(p => <option key={p.id} value={p.id}>{p.name} ({p.model})</option>)}
+                        {products.map(p => <option key={p.id} value={p.id}>{p.name} ({p.barcode})</option>)}
                       </Select>
                     </div>
                     <Input 
                       label="Model" 
                       value={currentOrderItem.model}
-                      onChange={(e) => setCurrentOrderItem({ ...currentOrderItem, model: e.target.value })}
+                      onChange={(e) => updateCurrentOrderItem({ ...currentOrderItem, model: e.target.value })}
                     />
                     <Input 
                       label="Quantity" 
                       type="number" 
                       value={currentOrderItem.quantity || ''}
-                      onChange={(e) => setCurrentOrderItem({ ...currentOrderItem, quantity: Number(e.target.value) })}
+                      onChange={(e) => updateCurrentOrderItem({ ...currentOrderItem, quantity: Number(e.target.value) })}
                     />
                     <Input 
                       label="Rate" 
                       type="number" 
                       value={currentOrderItem.rate || ''}
-                      onChange={(e) => setCurrentOrderItem({ ...currentOrderItem, rate: Number(e.target.value) })}
+                      onChange={(e) => updateCurrentOrderItem({ ...currentOrderItem, rate: Number(e.target.value) })}
                     />
+                    {currentOrderItem.productId && (
+                      <div className="col-span-full grid grid-cols-2 md:grid-cols-4 gap-4 text-[11px] bg-blue-50 p-3 rounded-xl border border-blue-100 mt-2">
+                        <div><span className="font-bold text-blue-600 uppercase">Product Code:</span> {currentOrderItem.productCode}</div>
+                        <div><span className="font-bold text-blue-600 uppercase">Capacity:</span> {products.find(p => p.id === currentOrderItem.productId)?.capacity}</div>
+                        <div><span className="font-bold text-blue-600 uppercase">Guarantee:</span> {products.find(p => p.id === currentOrderItem.productId)?.guarantee}</div>
+                        <div><span className="font-bold text-blue-600 uppercase">Warranty:</span> {products.find(p => p.id === currentOrderItem.productId)?.warranty}</div>
+                      </div>
+                    )}
                     <Button type="button" variant="secondary" onClick={handleAddOrderItem} className="w-full">
                       Add to List
                     </Button>
@@ -699,6 +847,8 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
                       <table className="w-full text-sm">
                         <thead className="bg-gray-50 border-b">
                           <tr>
+                            <th className="px-4 py-2 text-center">Barcode</th>
+                            <th className="px-4 py-2 text-center">Product Code</th>
                             <th className="px-4 py-2 text-left">Product</th>
                             <th className="px-4 py-2 text-center">Qty</th>
                             <th className="px-4 py-2 text-right">Rate</th>
@@ -709,6 +859,8 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
                         <tbody>
                           {orderItems.map((item, idx) => (
                             <tr key={idx} className="border-b last:border-0">
+                              <td className="px-4 py-2 text-center">{item.barcode || '-'}</td>
+                              <td className="px-4 py-2 text-center">{item.productCode}</td>
                               <td className="px-4 py-2">{item.name} ({item.model})</td>
                               <td className="px-4 py-2 text-center">{item.quantity}</td>
                               <td className="px-4 py-2 text-right">{formatCurrency(item.rate)}</td>
@@ -723,7 +875,7 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
                         </tbody>
                         <tfoot className="bg-gray-50 font-bold">
                           <tr>
-                            <td colSpan={3} className="px-4 py-2 text-right">Grand Total:</td>
+                            <td colSpan={5} className="px-4 py-2 text-right">Grand Total:</td>
                             <td className="px-4 py-2 text-right text-primary">
                               {formatCurrency(orderItems.reduce((sum, item) => sum + (item.quantity * item.rate), 0))}
                             </td>
@@ -783,21 +935,27 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
         );
 
         const handleAddPurchaseItem = () => {
-          if (!currentOrderItem.productId || currentOrderItem.quantity <= 0 || currentOrderItem.rate <= 0) {
+          const item = currentOrderItemRef.current;
+          if (!item.productId || item.quantity <= 0 || item.rate <= 0) {
             alert('Please select a product and enter valid quantity and rate.');
             return;
           }
-          const product = products.find(p => p.id === currentOrderItem.productId);
+          const product = products.find(p => p.id === item.productId);
           if (product) {
-            setOrderItems([...orderItems, {
+            const newItem = {
               productId: product.id,
+              productCode: product.productCode,
+              barcode: product.barcode,
               name: product.name,
-              model: currentOrderItem.model || product.model,
-              hsnCode: currentOrderItem.hsnCode,
-              quantity: currentOrderItem.quantity,
-              rate: currentOrderItem.rate
-            }]);
-            setCurrentOrderItem({ productId: '', model: '', hsnCode: '', quantity: 0, rate: 0 });
+              model: item.model || product.model,
+              hsnCode: item.hsnCode || product.hsnCode,
+              quantity: item.quantity,
+              rate: item.rate
+            };
+            setOrderItems([...orderItems, newItem]);
+            updateCurrentOrderItem({ productId: '', productCode: '', barcode: '', model: '', hsnCode: '', quantity: 0, rate: 0, stock: 0 });
+          } else {
+            console.error('Product not found:', item.productId);
           }
         };
 
@@ -822,44 +980,96 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-4">
                   <h4 className="text-sm font-bold text-gray-600 uppercase tracking-wider">Add Products</h4>
                   <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
+                    <Input 
+                      label="Barcode" 
+                      value={currentOrderItem.barcode}
+                      onChange={(e) => {
+                        const val = e.target.value.trim();
+                        const p = products.find(prod => prod.barcode === val);
+                        if (p) {
+                          updateCurrentOrderItem({
+                            ...currentOrderItem,
+                            productId: p.id,
+                            productCode: p.productCode,
+                            barcode: p.barcode,
+                            model: p.model,
+                            hsnCode: p.hsnCode,
+                            stock: p.stock,
+                            quantity: currentOrderItem.quantity || 1,
+                            rate: p.purchasePrice || 0
+                          });
+                        } else {
+                          updateCurrentOrderItem({ ...currentOrderItem, barcode: e.target.value });
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddPurchaseItem();
+                        }
+                      }}
+                    />
                     <div className="md:col-span-1">
                       <Select 
                         label="Select Product" 
                         value={currentOrderItem.productId}
                         onChange={(e) => {
                           const p = products.find(prod => prod.id === e.target.value);
-                          setCurrentOrderItem({ ...currentOrderItem, productId: e.target.value, model: p ? p.model : '', hsnCode: '' });
+                          updateCurrentOrderItem({ 
+                            ...currentOrderItem, 
+                            productId: e.target.value, 
+                            productCode: p ? p.productCode : '',
+                            barcode: p ? p.barcode : '',
+                            model: p ? p.model : '', 
+                            hsnCode: p ? p.hsnCode : '',
+                            stock: p ? p.stock : 0,
+                            quantity: currentOrderItem.quantity || 1,
+                            rate: p ? (p.purchasePrice || 0) : 0
+                          });
                         }}
                       >
                         <option value="">Select Product</option>
-                        {products.map(p => <option key={p.id} value={p.id}>{p.name} ({p.model})</option>)}
+                        {products.map(p => <option key={p.id} value={p.id}>{p.name} ({p.barcode})</option>)}
                       </Select>
+                      {currentOrderItem.productId && (
+                        <p className="text-[10px] font-bold text-primary mt-1">Stock Available: {currentOrderItem.stock}</p>
+                      )}
                     </div>
                     <Input 
                       label="Model" 
                       value={currentOrderItem.model}
-                      onChange={(e) => setCurrentOrderItem({ ...currentOrderItem, model: e.target.value })}
+                      onChange={(e) => updateCurrentOrderItem({ ...currentOrderItem, model: e.target.value })}
                     />
                     <Input 
                       label="HSN Code" 
                       value={currentOrderItem.hsnCode}
-                      onChange={(e) => setCurrentOrderItem({ ...currentOrderItem, hsnCode: e.target.value })}
+                      onChange={(e) => updateCurrentOrderItem({ ...currentOrderItem, hsnCode: e.target.value })}
                     />
                     <Input 
                       label="Quantity" 
                       type="number" 
                       value={currentOrderItem.quantity || ''}
-                      onChange={(e) => setCurrentOrderItem({ ...currentOrderItem, quantity: Number(e.target.value) })}
+                      onChange={(e) => updateCurrentOrderItem({ ...currentOrderItem, quantity: Number(e.target.value) })}
                     />
                     <Input 
                       label="Rate" 
                       type="number" 
                       value={currentOrderItem.rate || ''}
-                      onChange={(e) => setCurrentOrderItem({ ...currentOrderItem, rate: Number(e.target.value) })}
+                      onChange={(e) => updateCurrentOrderItem({ ...currentOrderItem, rate: Number(e.target.value) })}
                     />
-                    <Button type="button" variant="secondary" onClick={handleAddPurchaseItem} className="w-full">
-                      Add to List
-                    </Button>
+                    {currentOrderItem.productId && (
+                      <div className="col-span-full grid grid-cols-2 md:grid-cols-4 gap-4 text-[11px] bg-blue-50 p-3 rounded-xl border border-blue-100 mt-2">
+                        <div><span className="font-bold text-blue-600 uppercase">Product Code:</span> {currentOrderItem.productCode}</div>
+                        <div><span className="font-bold text-blue-600 uppercase">Capacity:</span> {products.find(p => p.id === currentOrderItem.productId)?.capacity}</div>
+                        <div><span className="font-bold text-blue-600 uppercase">Guarantee:</span> {products.find(p => p.id === currentOrderItem.productId)?.guarantee}</div>
+                        <div><span className="font-bold text-blue-600 uppercase">Warranty:</span> {products.find(p => p.id === currentOrderItem.productId)?.warranty}</div>
+                      </div>
+                    )}
+                    <div className="md:col-span-6 flex justify-end">
+                      <Button type="button" variant="secondary" onClick={handleAddPurchaseItem} className="w-full md:w-auto px-12">
+                        Add to List
+                      </Button>
+                    </div>
                   </div>
 
                   {orderItems.length > 0 && (
@@ -867,7 +1077,8 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
                       <table className="w-full text-sm">
                         <thead className="bg-gray-50 border-b">
                           <tr>
-                            <th className="px-4 py-2 text-center">Sl No</th>
+                            <th className="px-4 py-2 text-center">Barcode</th>
+                            <th className="px-4 py-2 text-center">Product Code</th>
                             <th className="px-4 py-2 text-left">Product</th>
                             <th className="px-4 py-2 text-center">HSN Code</th>
                             <th className="px-4 py-2 text-center">Qty</th>
@@ -879,7 +1090,8 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
                         <tbody>
                           {orderItems.map((item, idx) => (
                             <tr key={idx} className="border-b last:border-0">
-                              <td className="px-4 py-2 text-center">{idx + 1}</td>
+                              <td className="px-4 py-2 text-center">{item.barcode || '-'}</td>
+                              <td className="px-4 py-2 text-center">{item.productCode}</td>
                               <td className="px-4 py-2">{item.name} ({item.model})</td>
                               <td className="px-4 py-2 text-center">{item.hsnCode || '-'}</td>
                               <td className="px-4 py-2 text-center">{item.quantity}</td>
@@ -895,7 +1107,7 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
                         </tbody>
                         <tfoot className="bg-gray-50 font-bold">
                           <tr>
-                            <td colSpan={3} className="px-4 py-2 text-right">Grand Total:</td>
+                            <td colSpan={6} className="px-4 py-2 text-right">Grand Total:</td>
                             <td className="px-4 py-2 text-right text-primary">
                               {formatCurrency(orderItems.reduce((sum, item) => sum + (item.quantity * item.rate), 0))}
                             </td>
@@ -1438,11 +1650,13 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
         <form onSubmit={handleSave} className="space-y-6">
           {activeTab === 'products' && (
             <div className="grid grid-cols-2 gap-4">
+              <Input name="productCode" label="Product Code" defaultValue={editingItem?.productCode} required />
+              <Input name="barcode" label="Barcode" defaultValue={editingItem?.barcode} required />
               <Input name="name" label="Product Name" defaultValue={editingItem?.name} required />
               <Input name="model" label="Model" defaultValue={editingItem?.model} required />
-              <Input name="serialNo" label="Serial No" defaultValue={editingItem?.serialNo} />
               <Input name="capacity" label="Capacity" defaultValue={editingItem?.capacity} placeholder="e.g. 150Ah" />
               <Input name="guarantee" label="Guarantee" defaultValue={editingItem?.guarantee} placeholder="e.g. 36 Months" />
+              <Input name="hsnCode" label="HSN Code" defaultValue={editingItem?.hsnCode} />
               <Input name="gst" label="GST (%)" type="number" defaultValue={editingItem?.gst || 18} />
               <Input name="warranty" label="Warranty" defaultValue={editingItem?.warranty} />
               <Input name="servicePeriod" label="Service Period (Months)" type="number" defaultValue={editingItem?.servicePeriod} />
@@ -1452,6 +1666,7 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
           )}
           {activeTab === 'customers' && (
             <div className="space-y-4">
+              <Input name="customerCode" label="Customer Code" defaultValue={editingItem?.customerCode} required />
               <Input name="name" label="Customer Name" defaultValue={editingItem?.name} required />
               <Input name="phone" label="Phone No" defaultValue={editingItem?.phone} required />
               <Input name="address" label="Address" defaultValue={editingItem?.address} />
@@ -1459,6 +1674,7 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
           )}
           {activeTab === 'suppliers' && (
             <div className="grid grid-cols-2 gap-4">
+              <Input name="supplierCode" label="Supplier Code" defaultValue={editingItem?.supplierCode} required />
               <Input name="name" label="Supplier Name" defaultValue={editingItem?.name} required />
               <Input name="email" label="Email ID" type="email" defaultValue={editingItem?.email} />
               <Input name="contactNo" label="Contact No" defaultValue={editingItem?.contactNo} required />

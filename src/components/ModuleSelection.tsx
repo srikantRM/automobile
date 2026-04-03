@@ -45,7 +45,7 @@ export const ModuleSelection: React.FC<ModuleSelectionProps> = ({ onSelect }) =>
         <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-2xl">
           <span className="text-primary font-bold text-4xl">R</span>
         </div>
-        <h1 className="text-4xl sm:text-5xl font-bold text-white tracking-tight mb-4">RedLink Business Manager</h1>
+        <h1 className="text-4xl sm:text-5xl font-bold text-white tracking-tight mb-4">SKYBIRD Business Manager</h1>
         <p className="text-white/70 text-lg max-w-md mx-auto">Select a module to begin managing your business operations.</p>
       </div>
 
