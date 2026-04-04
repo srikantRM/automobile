@@ -15,6 +15,7 @@ import {
 import { Button, Input, DataTable, Modal, Select } from '../components/UI';
 import { formatCurrency, cn } from '../lib/utils';
 import { AutoProduct, Supplier } from '../types';
+import { useData } from '../hooks/useData';
 
 interface AutoModuleProps {
   activeTab: string;
@@ -30,133 +31,326 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
     model: 'All Models'
   });
 
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [products, setProducts] = useState<AutoProduct[]>([]);
-  const [orders, setOrders] = useState<any[]>([]);
-  const [purchases, setPurchases] = useState<any[]>([]);
-  const [sales, setSales] = useState<any[]>([]);
-  const [payments, setPayments] = useState<any[]>([]);
+  const { data: suppliers, saveData: saveSupplier, updateData: updateSupplier, deleteData: deleteSupplier } = useData<Supplier>('suppliers');
+  const { data: products, saveData: saveProduct, updateData: updateProduct, deleteData: deleteProduct } = useData<AutoProduct>('auto_products');
+  const { data: orders, saveData: saveOrder, updateData: updateOrder, deleteData: deleteOrder } = useData<any>('purchase_orders');
+  const { data: purchases, saveData: savePurchase, updateData: updatePurchase, deleteData: deletePurchase } = useData<any>('purchases');
+  const { data: sales, saveData: saveSale, updateData: updateSale, deleteData: deleteSale } = useData<any>('sales');
+  const { data: payments, saveData: savePayment, updateData: updatePayment, deleteData: deletePayment } = useData<any>('transactions');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [orderItems, setOrderItems] = useState<any[]>([]);
+  const [currentOrderItem, setCurrentOrderItem] = useState<any>({
+    productId: '',
+    barcode: '',
+    name: '',
+    model: '',
+    partNo: '',
+    rackNo: '',
+    quantity: 0,
+    rate: 0,
+    stock: 0
+  });
+
+  const [purchaseItems, setPurchaseItems] = useState<any[]>([]);
+  const [currentPurchaseItem, setCurrentPurchaseItem] = useState<any>({
+    productId: '',
+    barcode: '',
+    name: '',
+    model: '',
+    partNo: '',
+    rackNo: '',
+    quantity: 0,
+    rate: 0,
+    stock: 0
+  });
+
+  const [saleItems, setSaleItems] = useState<any[]>([]);
+  const [currentSaleItem, setCurrentSaleItem] = useState<any>({
+    productId: '',
+    barcode: '',
+    name: '',
+    model: '',
+    partNo: '',
+    rackNo: '',
+    quantity: 0,
+    rate: 0,
+    stock: 0
+  });
+
+  const currentOrderItemRef = React.useRef(currentOrderItem);
+  const currentPurchaseItemRef = React.useRef(currentPurchaseItem);
+  const currentSaleItemRef = React.useRef(currentSaleItem);
+
+  const updateCurrentOrderItem = (val: any) => {
+    setCurrentOrderItem(prev => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      currentOrderItemRef.current = next;
+      return next;
+    });
+  };
+
+  const updateCurrentPurchaseItem = (val: any) => {
+    setCurrentPurchaseItem(prev => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      currentPurchaseItemRef.current = next;
+      return next;
+    });
+  };
+
+  const updateCurrentSaleItem = (val: any) => {
+    setCurrentSaleItem(prev => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      currentSaleItemRef.current = next;
+      return next;
+    });
+  };
+
+  const handleAddOrderItem = () => {
+    const current = currentOrderItemRef.current;
+    if (!current.productId || current.quantity <= 0) {
+      alert('Please select a product and enter a valid quantity.');
+      return;
+    }
+    const product = products.find(p => p.id === current.productId);
+    if (!product) {
+      alert('Product not found.');
+      return;
+    }
+    const newItem = {
+      productId: product.id,
+      barcode: product.barcode,
+      name: product.name,
+      model: product.model,
+      partNo: product.partNo,
+      rackNo: product.rackNo,
+      quantity: current.quantity,
+      rate: current.rate
+    };
+    setOrderItems(prev => [...prev, newItem]);
+    updateCurrentOrderItem({ productId: '', barcode: '', name: '', model: '', partNo: '', rackNo: '', quantity: 0, rate: 0, stock: 0 });
+  };
+
+  const removeOrderItem = (index: number) => {
+    setOrderItems(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAddPurchaseItem = () => {
+    const current = currentPurchaseItemRef.current;
+    if (!current.productId || current.quantity <= 0) {
+      alert('Please select a product and enter a valid quantity.');
+      return;
+    }
+    const product = products.find(p => p.id === current.productId);
+    if (!product) {
+      alert('Product not found.');
+      return;
+    }
+    const newItem = {
+      productId: product.id,
+      barcode: product.barcode,
+      name: product.name,
+      model: product.model,
+      partNo: product.partNo,
+      rackNo: product.rackNo,
+      quantity: current.quantity,
+      rate: current.rate
+    };
+    setPurchaseItems(prev => [...prev, newItem]);
+    updateCurrentPurchaseItem({ productId: '', barcode: '', name: '', model: '', partNo: '', rackNo: '', quantity: 0, rate: 0, stock: 0 });
+  };
+
+  const removePurchaseItem = (index: number) => {
+    setPurchaseItems(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAddSaleItem = () => {
+    const current = currentSaleItemRef.current;
+    if (!current.productId || current.quantity <= 0) {
+      alert('Please select a product and enter a valid quantity.');
+      return;
+    }
+
+    const product = products.find(p => p.id === current.productId);
+    if (!product) {
+      alert('Product not found.');
+      return;
+    }
+
+    if (product.stock < current.quantity) {
+      alert(`Insufficient stock! Only ${product.stock} available.`);
+      return;
+    }
+
+    const newItem = {
+      productId: product.id,
+      barcode: product.barcode,
+      name: product.name,
+      model: product.model,
+      partNo: product.partNo,
+      rackNo: product.rackNo,
+      quantity: current.quantity,
+      rate: current.rate
+    };
+
+    setSaleItems(prev => [...prev, newItem]);
+    updateCurrentSaleItem({ productId: '', barcode: '', name: '', model: '', partNo: '', rackNo: '', quantity: 0, rate: 0, stock: 0 });
+  };
+
+  const removeSaleItem = (index: number) => {
+    setSaleItems(saleItems.filter((_, i) => i !== index));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget as HTMLFormElement);
     const data = Object.fromEntries(formData.entries());
 
-    if (activeTab === 'products') {
-      if (editingItem) {
-        setProducts(products.map(p => p.id === editingItem.id ? { ...p, ...data } as AutoProduct : p));
-      } else {
-        const newProduct: AutoProduct = {
-          id: Math.random().toString(36).substr(2, 9),
-          barcode: data.barcode as string,
-          hsnCode: data.hsnCode as string,
-          name: data.name as string,
-          company: data.company as string,
-          model: data.model as string,
-          partNo: data.partNo as string,
-          lowQty: Number(data.lowQty),
-          gst: Number(data.gst),
-          rackNo: data.rackNo as string,
-          purchaseRate: Number(data.purchaseRate),
-          mrp: Number(data.mrp),
-          stock: 0,
-        };
-        setProducts([...products, newProduct]);
+    try {
+      if (activeTab === 'products') {
+        if (editingItem) {
+          await updateProduct(editingItem.id, { ...editingItem, ...data } as AutoProduct);
+        } else {
+          const newProduct: AutoProduct = {
+            id: Math.random().toString(36).substr(2, 9),
+            barcode: data.barcode as string,
+            hsnCode: data.hsnCode as string,
+            name: data.name as string,
+            company: data.company as string,
+            model: data.model as string,
+            partNo: data.partNo as string,
+            lowQty: Number(data.lowQty),
+            gst: Number(data.gst),
+            rackNo: data.rackNo as string,
+            purchaseRate: Number(data.purchaseRate),
+            mrp: Number(data.mrp),
+            stock: 0,
+          };
+          await saveProduct(newProduct);
+        }
+      } else if (activeTab === 'suppliers') {
+        if (editingItem) {
+          await updateSupplier(editingItem.id, { ...editingItem, ...data } as Supplier);
+        } else {
+          const newSupplier: Supplier = {
+            id: Math.random().toString(36).substr(2, 9),
+            supplierCode: data.supplierCode as string || `S-AUTO-${(suppliers.length + 1).toString().padStart(3, '0')}`,
+            name: data.name as string,
+            contactNo: data.contactNo as string,
+            gstNo: data.gstNo as string,
+            city: data.city as string,
+            address: data.address as string,
+            state: data.state as string,
+            email: data.email as string,
+            balance: 0,
+          };
+          await saveSupplier(newSupplier);
+        }
+      } else if (activeTab === 'orders') {
+        if (editingItem) {
+          await updateOrder(editingItem.id, { ...editingItem, ...data, total: Number(data.quantity) * Number(data.rate) } as any);
+        } else {
+          if (orderItems.length === 0) {
+            alert('Please add at least one product to the order.');
+            return;
+          }
+          const totalAmount = orderItems.reduce((sum, item) => sum + (item.quantity * item.rate), 0);
+          const newOrder = {
+            id: Math.random().toString(36).substr(2, 9),
+            orderNo: data.orderNo || `PO-AUTO-${(orders.length + 1).toString().padStart(3, '0')}`,
+            date: data.date as string,
+            supplier: data.supplier as string,
+            model: orderItems.length === 1 ? orderItems[0].model : `${orderItems.length} Items`,
+            total: totalAmount,
+            status: 'Pending'
+          };
+          await saveOrder(newOrder);
+          setOrderItems([]);
+        }
+      } else if (activeTab === 'purchases') {
+        if (editingItem) {
+          await updatePurchase(editingItem.id, { ...editingItem, ...data, total: Number(data.quantity) * Number(data.purchaseRate) } as any);
+        } else {
+          if (purchaseItems.length === 0) {
+            alert('Please add at least one product to the purchase.');
+            return;
+          }
+          const totalAmount = purchaseItems.reduce((sum, item) => sum + (item.quantity * item.rate), 0);
+          const newPurchase = {
+            id: Math.random().toString(36).substr(2, 9),
+            invoiceNo: data.invoiceNo as string,
+            date: data.date as string,
+            supplier: data.supplier as string,
+            model: purchaseItems.length === 1 ? purchaseItems[0].model : `${purchaseItems.length} Items`,
+            total: totalAmount,
+            status: 'Received'
+          };
+          await savePurchase(newPurchase);
+          
+          // Update stock for each item
+          for (const item of purchaseItems) {
+            const product = products.find(p => p.id === item.productId);
+            if (product) {
+              await updateProduct(product.id, { ...product, stock: product.stock + item.quantity });
+            }
+          }
+          
+          setPurchaseItems([]);
+        }
+      } else if (activeTab === 'sales') {
+        if (editingItem) {
+          await updateSale(editingItem.id, { ...editingItem, ...data, total: Number(data.quantity) * Number(data.rate) } as any);
+        } else {
+          if (saleItems.length === 0) {
+            alert('Please add at least one product to the invoice.');
+            return;
+          }
+          const totalAmount = saleItems.reduce((sum, item) => sum + (item.quantity * item.rate), 0);
+          const newSale = {
+            id: Math.random().toString(36).substr(2, 9),
+            invoiceNo: data.invoiceNo || `AS-${(sales.length + 1).toString().padStart(3, '0')}`,
+            date: data.date as string,
+            customer: data.customer as string,
+            phone: data.phone as string,
+            model: saleItems.length === 1 ? saleItems[0].model : `${saleItems.length} Items`,
+            total: totalAmount,
+            status: 'Paid'
+          };
+          await saveSale(newSale);
+          
+          // Update stock for each item
+          for (const item of saleItems) {
+            const product = products.find(p => p.id === item.productId);
+            if (product) {
+              await updateProduct(product.id, { ...product, stock: product.stock - item.quantity });
+            }
+          }
+          
+          setSaleItems([]);
+        }
+      } else if (activeTab === 'payments') {
+        if (editingItem) {
+          await updatePayment(editingItem.id, { ...editingItem, ...data } as any);
+        } else {
+          const newPayment = {
+            id: Math.random().toString(36).substr(2, 9),
+            date: data.date as string || new Date().toISOString().split('T')[0],
+            headId: data.supplier as string,
+            amount: Number(data.amount),
+            type: 'Debit',
+            description: `Payment to ${data.supplier}`
+          };
+          await savePayment(newPayment);
+        }
       }
-    } else if (activeTab === 'suppliers') {
-      if (editingItem) {
-        setSuppliers(suppliers.map(s => s.id === editingItem.id ? { ...s, ...data } as Supplier : s));
-      } else {
-        const newSupplier: Supplier = {
-          id: Math.random().toString(36).substr(2, 9),
-          supplierCode: data.supplierCode as string || `S-AUTO-${(suppliers.length + 1).toString().padStart(3, '0')}`,
-          name: data.name as string,
-          contactNo: data.contactNo as string,
-          gstNo: data.gstNo as string,
-          city: data.city as string,
-          address: data.address as string,
-          state: data.state as string,
-          email: data.email as string,
-          balance: 0,
-        };
-        setSuppliers([...suppliers, newSupplier]);
-      }
-    } else if (activeTab === 'orders') {
-      if (editingItem) {
-        setOrders(orders.map(o => o.id === editingItem.id ? { ...o, ...data, total: Number(data.quantity) * Number(data.rate) } : o));
-      } else {
-        const newOrder = {
-          id: Math.random().toString(36).substr(2, 9),
-          orderNo: data.orderNo || `PO-AUTO-${(orders.length + 1).toString().padStart(3, '0')}`,
-          date: data.date as string,
-          supplier: data.supplier as string,
-          product: data.product as string,
-          quantity: Number(data.quantity),
-          rate: Number(data.rate),
-          total: Number(data.quantity) * Number(data.rate),
-          status: 'Pending'
-        };
-        setOrders([newOrder, ...orders]);
-      }
-    } else if (activeTab === 'purchases') {
-      if (editingItem) {
-        setPurchases(purchases.map(p => p.id === editingItem.id ? { ...p, ...data, total: Number(data.quantity) * Number(data.purchaseRate) } : p));
-      } else {
-        const newPurchase = {
-          id: Math.random().toString(36).substr(2, 9),
-          invoiceNo: data.invoiceNo as string,
-          date: data.date as string,
-          supplier: data.supplier as string,
-          product: data.product as string,
-          quantity: Number(data.quantity),
-          purchaseRate: Number(data.purchaseRate),
-          total: Number(data.quantity) * Number(data.purchaseRate),
-          status: 'Received'
-        };
-        setPurchases([newPurchase, ...purchases]);
-        // Update stock
-        setProducts(products.map(p => p.name === data.product ? { ...p, stock: p.stock + Number(data.quantity) } : p));
-      }
-    } else if (activeTab === 'sales') {
-      if (editingItem) {
-        setSales(sales.map(s => s.id === editingItem.id ? { ...s, ...data, total: Number(data.quantity) * Number(data.rate) } : s));
-      } else {
-        const newSale = {
-          id: Math.random().toString(36).substr(2, 9),
-          invoiceNo: data.invoiceNo || `AS-${(sales.length + 1).toString().padStart(3, '0')}`,
-          date: data.date as string,
-          customer: data.customer as string,
-          phone: data.phone as string,
-          product: data.product as string,
-          quantity: Number(data.quantity),
-          rate: Number(data.rate),
-          total: Number(data.quantity) * Number(data.rate),
-          status: 'Paid'
-        };
-        setSales([newSale, ...sales]);
-        // Update stock
-        setProducts(products.map(p => p.name === data.product ? { ...p, stock: p.stock - Number(data.quantity) } : p));
-      }
-    } else if (activeTab === 'payments') {
-      if (editingItem) {
-        setPayments(payments.map(p => p.id === editingItem.id ? { ...p, ...data } : p));
-      } else {
-        const newPayment = {
-          id: Math.random().toString(36).substr(2, 9),
-          date: new Date().toISOString().split('T')[0],
-          supplier: data.supplier as string,
-          amount: Number(data.amount),
-          mode: data.mode as string,
-          ref: data.ref as string,
-        };
-        setPayments([newPayment, ...payments]);
-      }
-    }
 
-    alert('Data saved successfully!');
-    (e.target as HTMLFormElement).reset();
-    setIsModalOpen(false);
-    setEditingItem(null);
+      alert('Data saved successfully!');
+      (e.target as HTMLFormElement).reset();
+      setIsModalOpen(false);
+      setEditingItem(null);
+    } catch (error) {
+      console.error('Error saving data:', error);
+      alert('Failed to save data.');
+    }
   };
 
   const simulateSend = (type: 'Email' | 'WhatsApp', row: any) => {
@@ -221,7 +415,7 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
                 onEdit={(row) => { setEditingItem(row); setIsModalOpen(true); }}
                 onDelete={(row) => {
                   if (confirm('Are you sure you want to delete this part?')) {
-                    setProducts(products.filter(p => p.id !== row.id));
+                    deleteProduct(row.id);
                   }
                 }}
                 onPrint={(row) => window.print()}
@@ -348,7 +542,7 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
                 onEdit={(row) => { setEditingItem(row); setIsModalOpen(true); }}
                 onDelete={(row) => {
                   if (confirm('Are you sure you want to delete this payment?')) {
-                    setPayments(payments.filter(p => p.id !== row.id));
+                    deletePayment(row.id);
                   }
                 }}
                 onPrint={(row) => window.print()}
@@ -360,29 +554,157 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
         const filteredOrders = orders.filter(o => 
           o.orderNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
           o.supplier.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          o.product.toLowerCase().includes(searchQuery.toLowerCase())
+          (o.model && o.model.toLowerCase().includes(searchQuery.toLowerCase()))
         );
         return (
           <div className="space-y-8">
             <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-6">
               <h3 className="font-bold text-gray-800 border-b pb-4">New Purchase Order</h3>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <Input label="Order No" name="orderNo" defaultValue={`PO-AUTO-${(orders.length + 1).toString().padStart(3, '0')}`} disabled />
-                <Input label="Date" name="date" type="date" defaultValue={new Date().toISOString().split('T')[0]} required />
-                <Select label="Select Supplier" name="supplier" required>
-                  <option value="">Select Supplier</option>
-                  {suppliers.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-                </Select>
-                <Select label="Select Product" name="product" required>
-                  <option value="">Select Product</option>
-                  {products.map(p => <option key={p.id} value={p.name}>{p.name} ({p.partNo})</option>)}
-                </Select>
-                <div className="grid grid-cols-2 gap-4">
-                  <Input label="Quantity" name="quantity" type="number" required />
-                  <Input label="Expected Rate" name="rate" type="number" required />
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Input label="Order No" name="orderNo" defaultValue={`PO-AUTO-${(orders.length + 1).toString().padStart(3, '0')}`} disabled />
+                  <Input label="Date" name="date" type="date" defaultValue={new Date().toISOString().split('T')[0]} required />
+                  <Select label="Select Supplier" name="supplier" required className="md:col-span-2">
+                    <option value="">Select Supplier</option>
+                    {suppliers.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                  </Select>
                 </div>
-                <div className="pt-4 border-t">
-                  <Button type="submit" className="w-full">Generate Order</Button>
+
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-4">
+                  <h4 className="text-sm font-bold text-gray-600 uppercase tracking-wider">Add Products</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+                    <Input 
+                      label="Barcode" 
+                      value={currentOrderItem.barcode}
+                      onChange={(e) => {
+                        const val = e.target.value.trim();
+                        const p = products.find(prod => prod.barcode === val);
+                        if (p) {
+                          updateCurrentOrderItem(prev => ({
+                            ...prev,
+                            productId: p.id,
+                            barcode: p.barcode,
+                            name: p.name,
+                            model: p.model,
+                            partNo: p.partNo,
+                            rackNo: p.rackNo,
+                            stock: p.stock,
+                            quantity: prev.quantity || 1,
+                            rate: p.purchaseRate || 0
+                          }));
+                        } else {
+                          updateCurrentOrderItem(prev => ({ ...prev, barcode: e.target.value }));
+                        }
+                      }}
+                    />
+                    <div className="md:col-span-1">
+                      <Select 
+                        label="Select Product" 
+                        value={currentOrderItem.productId}
+                        onChange={(e) => {
+                          const p = products.find(prod => prod.id === e.target.value);
+                          if (p) {
+                            updateCurrentOrderItem(prev => ({ 
+                              ...prev, 
+                              productId: p.id,
+                              barcode: p.barcode,
+                              name: p.name,
+                              model: p.model,
+                              partNo: p.partNo,
+                              rackNo: p.rackNo,
+                              stock: p.stock,
+                              quantity: prev.quantity || 1,
+                              rate: p.purchaseRate || 0
+                            }));
+                          } else {
+                            updateCurrentOrderItem({ productId: '', barcode: '', name: '', model: '', partNo: '', rackNo: '', quantity: 0, rate: 0, stock: 0 });
+                          }
+                        }}
+                      >
+                        <option value="">Select Product</option>
+                        {products.map(p => <option key={p.id} value={p.id}>{p.name} ({p.partNo}) - Model: {p.model || 'N/A'}</option>)}
+                      </Select>
+                    </div>
+                    <Input 
+                      label="Quantity" 
+                      type="number" 
+                      value={currentOrderItem.quantity || ''}
+                      onChange={(e) => updateCurrentOrderItem(prev => ({ ...prev, quantity: Number(e.target.value) }))}
+                    />
+                    <Input 
+                      label="Rate" 
+                      type="number" 
+                      value={currentOrderItem.rate || ''}
+                      onChange={(e) => updateCurrentOrderItem(prev => ({ ...prev, rate: Number(e.target.value) }))}
+                    />
+                    <div className="md:col-span-1 flex justify-end">
+                      <Button type="button" variant="secondary" onClick={handleAddOrderItem} className="w-full">
+                        Add to List
+                      </Button>
+                    </div>
+                  </div>
+
+                  {currentOrderItem.productId && (
+                    <div className="col-span-full grid grid-cols-2 md:grid-cols-4 gap-4 text-[11px] bg-blue-50 p-3 rounded-xl border border-blue-100 mt-2">
+                      <div><span className="font-bold text-blue-600 uppercase">Part No:</span> {products.find(p => p.id === currentOrderItem.productId)?.partNo}</div>
+                      <div><span className="font-bold text-blue-600 uppercase">Company:</span> {products.find(p => p.id === currentOrderItem.productId)?.company}</div>
+                      <div><span className="font-bold text-blue-600 uppercase">Rack No:</span> {products.find(p => p.id === currentOrderItem.productId)?.rackNo}</div>
+                      <div><span className="font-bold text-blue-600 uppercase">Current Stock:</span> {products.find(p => p.id === currentOrderItem.productId)?.stock}</div>
+                    </div>
+                  )}
+
+                  {orderItems.length > 0 && (
+                    <div className="mt-4 border rounded-lg overflow-hidden bg-white">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50 border-b">
+                          <tr>
+                            <th className="px-4 py-2 text-center">Barcode</th>
+                            <th className="px-4 py-2 text-left">Product</th>
+                            <th className="px-4 py-2 text-left">Model</th>
+                            <th className="px-4 py-2 text-left">Part No</th>
+                            <th className="px-4 py-2 text-center">Qty</th>
+                            <th className="px-4 py-2 text-right">Rate</th>
+                            <th className="px-4 py-2 text-right">Total</th>
+                            <th className="px-4 py-2 text-center">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {orderItems.map((item, idx) => (
+                            <tr key={idx} className="border-b last:border-0">
+                              <td className="px-4 py-2 text-center">{item.barcode || '-'}</td>
+                              <td className="px-4 py-2">{item.name}</td>
+                              <td className="px-4 py-2">{item.model}</td>
+                              <td className="px-4 py-2">{item.partNo}</td>
+                              <td className="px-4 py-2 text-center">{item.quantity}</td>
+                              <td className="px-4 py-2 text-right">{formatCurrency(item.rate)}</td>
+                              <td className="px-4 py-2 text-right font-bold">{formatCurrency(item.quantity * item.rate)}</td>
+                              <td className="px-4 py-2 text-center">
+                                <button type="button" onClick={() => removeOrderItem(idx)} className="text-red-500 hover:text-red-700">
+                                  Remove
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot className="bg-gray-50 font-bold">
+                          {(() => {
+                            const subtotal = orderItems.reduce((sum, item) => sum + (item.quantity * item.rate), 0);
+                            return (
+                              <tr className="text-lg border-t">
+                                <td colSpan={6} className="px-4 py-2 text-right">Grand Total:</td>
+                                <td className="px-4 py-2 text-right text-primary">{formatCurrency(subtotal)}</td>
+                                <td></td>
+                              </tr>
+                            );
+                          })()}
+                        </tfoot>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-4 border-t flex justify-end">
+                  <Button type="submit" className="px-12">Generate Purchase Order</Button>
                 </div>
               </form>
             </div>
@@ -403,6 +725,7 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
                   { key: 'orderNo', label: 'Order No' },
                   { key: 'date', label: 'Date' },
                   { key: 'supplier', label: 'Supplier' },
+                  { key: 'model', label: 'Model/Items' },
                   { key: 'total', label: 'Total', render: (val) => formatCurrency(val) },
                   { key: 'status', label: 'Status', render: (val) => (
                     <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-[10px] font-bold uppercase">{val}</span>
@@ -412,7 +735,7 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
                 onEdit={(row) => { setEditingItem(row); setIsModalOpen(true); }}
                 onDelete={(row) => {
                   if (confirm('Are you sure you want to delete this order?')) {
-                    setOrders(orders.filter(o => o.id !== row.id));
+                    deleteOrder(row.id);
                   }
                 }}
                 onPrint={(row) => window.print()}
@@ -424,29 +747,157 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
         const filteredPurchases = purchases.filter(p => 
           p.invoiceNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
           p.supplier.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.product.toLowerCase().includes(searchQuery.toLowerCase())
+          (p.model && p.model.toLowerCase().includes(searchQuery.toLowerCase()))
         );
         return (
           <div className="space-y-8">
             <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-6">
               <h3 className="font-bold text-gray-800 border-b pb-4">New Purchase Entry</h3>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <Input label="Invoice No" name="invoiceNo" placeholder="Enter Supplier Invoice No" required />
-                <Input label="Date" name="date" type="date" defaultValue={new Date().toISOString().split('T')[0]} required />
-                <Select label="Select Supplier" name="supplier" required>
-                  <option value="">Select Supplier</option>
-                  {suppliers.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-                </Select>
-                <Select label="Select Product" name="product" required>
-                  <option value="">Select Product</option>
-                  {products.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-                </Select>
-                <div className="grid grid-cols-2 gap-4">
-                  <Input label="Quantity" name="quantity" type="number" required />
-                  <Input label="Purchase Rate" name="purchaseRate" type="number" required />
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Input label="Invoice No" name="invoiceNo" placeholder="Enter Supplier Invoice No" required />
+                  <Input label="Date" name="date" type="date" defaultValue={new Date().toISOString().split('T')[0]} required />
+                  <Select label="Select Supplier" name="supplier" required className="md:col-span-2">
+                    <option value="">Select Supplier</option>
+                    {suppliers.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                  </Select>
                 </div>
-                <div className="pt-4 border-t">
-                  <Button type="submit" className="w-full">Save Purchase</Button>
+
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-4">
+                  <h4 className="text-sm font-bold text-gray-600 uppercase tracking-wider">Add Products</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+                    <Input 
+                      label="Barcode" 
+                      value={currentPurchaseItem.barcode}
+                      onChange={(e) => {
+                        const val = e.target.value.trim();
+                        const p = products.find(prod => prod.barcode === val);
+                        if (p) {
+                          updateCurrentPurchaseItem(prev => ({
+                            ...prev,
+                            productId: p.id,
+                            barcode: p.barcode,
+                            name: p.name,
+                            model: p.model,
+                            partNo: p.partNo,
+                            rackNo: p.rackNo,
+                            stock: p.stock,
+                            quantity: prev.quantity || 1,
+                            rate: p.purchaseRate || 0
+                          }));
+                        } else {
+                          updateCurrentPurchaseItem(prev => ({ ...prev, barcode: e.target.value }));
+                        }
+                      }}
+                    />
+                    <div className="md:col-span-1">
+                      <Select 
+                        label="Select Product" 
+                        value={currentPurchaseItem.productId}
+                        onChange={(e) => {
+                          const p = products.find(prod => prod.id === e.target.value);
+                          if (p) {
+                            updateCurrentPurchaseItem(prev => ({ 
+                              ...prev, 
+                              productId: p.id,
+                              barcode: p.barcode,
+                              name: p.name,
+                              model: p.model,
+                              partNo: p.partNo,
+                              rackNo: p.rackNo,
+                              stock: p.stock,
+                              quantity: prev.quantity || 1,
+                              rate: p.purchaseRate || 0
+                            }));
+                          } else {
+                            updateCurrentPurchaseItem({ productId: '', barcode: '', name: '', model: '', partNo: '', rackNo: '', quantity: 0, rate: 0, stock: 0 });
+                          }
+                        }}
+                      >
+                        <option value="">Select Product</option>
+                        {products.map(p => <option key={p.id} value={p.id}>{p.name} ({p.partNo}) - Model: {p.model || 'N/A'}</option>)}
+                      </Select>
+                    </div>
+                    <Input 
+                      label="Quantity" 
+                      type="number" 
+                      value={currentPurchaseItem.quantity || ''}
+                      onChange={(e) => updateCurrentPurchaseItem(prev => ({ ...prev, quantity: Number(e.target.value) }))}
+                    />
+                    <Input 
+                      label="Purchase Rate" 
+                      type="number" 
+                      value={currentPurchaseItem.rate || ''}
+                      onChange={(e) => updateCurrentPurchaseItem(prev => ({ ...prev, rate: Number(e.target.value) }))}
+                    />
+                    <div className="md:col-span-1 flex justify-end">
+                      <Button type="button" variant="secondary" onClick={handleAddPurchaseItem} className="w-full">
+                        Add to List
+                      </Button>
+                    </div>
+                  </div>
+
+                  {currentPurchaseItem.productId && (
+                    <div className="col-span-full grid grid-cols-2 md:grid-cols-4 gap-4 text-[11px] bg-blue-50 p-3 rounded-xl border border-blue-100 mt-2">
+                      <div><span className="font-bold text-blue-600 uppercase">Part No:</span> {products.find(p => p.id === currentPurchaseItem.productId)?.partNo}</div>
+                      <div><span className="font-bold text-blue-600 uppercase">Company:</span> {products.find(p => p.id === currentPurchaseItem.productId)?.company}</div>
+                      <div><span className="font-bold text-blue-600 uppercase">Rack No:</span> {products.find(p => p.id === currentPurchaseItem.productId)?.rackNo}</div>
+                      <div><span className="font-bold text-blue-600 uppercase">Current Stock:</span> {products.find(p => p.id === currentPurchaseItem.productId)?.stock}</div>
+                    </div>
+                  )}
+
+                  {purchaseItems.length > 0 && (
+                    <div className="mt-4 border rounded-lg overflow-hidden bg-white">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50 border-b">
+                          <tr>
+                            <th className="px-4 py-2 text-center">Barcode</th>
+                            <th className="px-4 py-2 text-left">Product</th>
+                            <th className="px-4 py-2 text-left">Model</th>
+                            <th className="px-4 py-2 text-left">Part No</th>
+                            <th className="px-4 py-2 text-center">Qty</th>
+                            <th className="px-4 py-2 text-right">Rate</th>
+                            <th className="px-4 py-2 text-right">Total</th>
+                            <th className="px-4 py-2 text-center">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {purchaseItems.map((item, idx) => (
+                            <tr key={idx} className="border-b last:border-0">
+                              <td className="px-4 py-2 text-center">{item.barcode || '-'}</td>
+                              <td className="px-4 py-2">{item.name}</td>
+                              <td className="px-4 py-2">{item.model}</td>
+                              <td className="px-4 py-2">{item.partNo}</td>
+                              <td className="px-4 py-2 text-center">{item.quantity}</td>
+                              <td className="px-4 py-2 text-right">{formatCurrency(item.rate)}</td>
+                              <td className="px-4 py-2 text-right font-bold">{formatCurrency(item.quantity * item.rate)}</td>
+                              <td className="px-4 py-2 text-center">
+                                <button type="button" onClick={() => removePurchaseItem(idx)} className="text-red-500 hover:text-red-700">
+                                  Remove
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot className="bg-gray-50 font-bold">
+                          {(() => {
+                            const subtotal = purchaseItems.reduce((sum, item) => sum + (item.quantity * item.rate), 0);
+                            return (
+                              <tr className="text-lg border-t">
+                                <td colSpan={6} className="px-4 py-2 text-right">Grand Total:</td>
+                                <td className="px-4 py-2 text-right text-primary">{formatCurrency(subtotal)}</td>
+                                <td></td>
+                              </tr>
+                            );
+                          })()}
+                        </tfoot>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-4 border-t flex justify-end">
+                  <Button type="submit" className="px-12">Save Purchase Entry</Button>
                 </div>
               </form>
             </div>
@@ -467,6 +918,7 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
                   { key: 'invoiceNo', label: 'Invoice' },
                   { key: 'date', label: 'Date' },
                   { key: 'supplier', label: 'Supplier' },
+                  { key: 'model', label: 'Model/Items' },
                   { key: 'total', label: 'Total', render: (val) => formatCurrency(val) },
                   { key: 'status', label: 'Status', render: (val) => (
                     <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-[10px] font-bold uppercase">{val}</span>
@@ -476,7 +928,7 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
                 onEdit={(row) => { setEditingItem(row); setIsModalOpen(true); }}
                 onDelete={(row) => {
                   if (confirm('Are you sure you want to delete this purchase?')) {
-                    setPurchases(purchases.filter(p => p.id !== row.id));
+                    deletePurchase(row.id);
                   }
                 }}
                 onPrint={(row) => window.print()}
@@ -488,27 +940,157 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
         const filteredSales = sales.filter(s => 
           s.invoiceNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
           s.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          s.product.toLowerCase().includes(searchQuery.toLowerCase())
+          (s.model && s.model.toLowerCase().includes(searchQuery.toLowerCase()))
         );
         return (
           <div className="space-y-8">
             <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-6">
               <h3 className="font-bold text-gray-800 border-b pb-4">New Sales Invoice</h3>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <Input label="Invoice No" name="invoiceNo" defaultValue={`AS-${(sales.length + 1).toString().padStart(3, '0')}`} disabled />
-                <Input label="Date" name="date" type="date" defaultValue={new Date().toISOString().split('T')[0]} required />
-                <Input label="Customer Name" name="customer" placeholder="Walk-in Customer" required />
-                <Input label="Phone No" name="phone" />
-                <Select label="Select Product" name="product" required>
-                  <option value="">Select Product</option>
-                  {products.map(p => <option key={p.id} value={p.name}>{p.name} ({p.stock} in stock)</option>)}
-                </Select>
-                <div className="grid grid-cols-2 gap-4">
-                  <Input label="Quantity" name="quantity" type="number" required />
-                  <Input label="Rate" name="rate" type="number" required />
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <Input label="Invoice No" name="invoiceNo" defaultValue={`AS-${(sales.length + 1).toString().padStart(3, '0')}`} disabled />
+                  <Input label="Date" name="date" type="date" defaultValue={new Date().toISOString().split('T')[0]} required />
+                  <Input label="Customer Name" name="customer" placeholder="Walk-in Customer" required />
+                  <Input label="Phone No" name="phone" className="md:col-span-3" />
                 </div>
-                <div className="pt-4 border-t">
-                  <Button type="submit" className="w-full">Save & Print Invoice</Button>
+
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-4">
+                  <h4 className="text-sm font-bold text-gray-600 uppercase tracking-wider">Add Products</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+                    <Input 
+                      label="Barcode" 
+                      value={currentSaleItem.barcode}
+                      onChange={(e) => {
+                        const val = e.target.value.trim();
+                        const p = products.find(prod => prod.barcode === val);
+                        if (p) {
+                          updateCurrentSaleItem(prev => ({
+                            ...prev,
+                            productId: p.id,
+                            barcode: p.barcode,
+                            name: p.name,
+                            model: p.model,
+                            partNo: p.partNo,
+                            rackNo: p.rackNo,
+                            stock: p.stock,
+                            quantity: prev.quantity || 1,
+                            rate: p.mrp || 0
+                          }));
+                        } else {
+                          updateCurrentSaleItem(prev => ({ ...prev, barcode: e.target.value }));
+                        }
+                      }}
+                    />
+                    <div className="md:col-span-1">
+                      <Select 
+                        label="Select Product" 
+                        value={currentSaleItem.productId}
+                        onChange={(e) => {
+                          const p = products.find(prod => prod.id === e.target.value);
+                          if (p) {
+                            updateCurrentSaleItem(prev => ({ 
+                              ...prev, 
+                              productId: p.id,
+                              barcode: p.barcode,
+                              name: p.name,
+                              model: p.model,
+                              partNo: p.partNo,
+                              rackNo: p.rackNo,
+                              stock: p.stock,
+                              quantity: prev.quantity || 1,
+                              rate: p.mrp || 0
+                            }));
+                          } else {
+                            updateCurrentSaleItem({ productId: '', barcode: '', name: '', model: '', partNo: '', rackNo: '', quantity: 0, rate: 0, stock: 0 });
+                          }
+                        }}
+                      >
+                        <option value="">Select Product</option>
+                        {products.map(p => <option key={p.id} value={p.id}>{p.name} ({p.stock} in stock) - Rack: {p.rackNo || 'N/A'}</option>)}
+                      </Select>
+                    </div>
+                    <Input 
+                      label="Quantity" 
+                      type="number" 
+                      value={currentSaleItem.quantity || ''}
+                      onChange={(e) => updateCurrentSaleItem(prev => ({ ...prev, quantity: Number(e.target.value) }))}
+                    />
+                    <Input 
+                      label="Rate" 
+                      type="number" 
+                      value={currentSaleItem.rate || ''}
+                      onChange={(e) => updateCurrentSaleItem(prev => ({ ...prev, rate: Number(e.target.value) }))}
+                    />
+                    <div className="md:col-span-1 flex justify-end">
+                      <Button type="button" variant="secondary" onClick={handleAddSaleItem} className="w-full">
+                        Add to Invoice
+                      </Button>
+                    </div>
+                  </div>
+
+                  {currentSaleItem.productId && (
+                    <div className="col-span-full grid grid-cols-2 md:grid-cols-4 gap-4 text-[11px] bg-blue-50 p-3 rounded-xl border border-blue-100 mt-2">
+                      <div><span className="font-bold text-blue-600 uppercase">Part No:</span> {products.find(p => p.id === currentSaleItem.productId)?.partNo}</div>
+                      <div><span className="font-bold text-blue-600 uppercase">Company:</span> {products.find(p => p.id === currentSaleItem.productId)?.company}</div>
+                      <div><span className="font-bold text-blue-600 uppercase">Rack No:</span> {products.find(p => p.id === currentSaleItem.productId)?.rackNo}</div>
+                      <div><span className="font-bold text-blue-600 uppercase">Current Stock:</span> {products.find(p => p.id === currentSaleItem.productId)?.stock}</div>
+                    </div>
+                  )}
+
+                  {saleItems.length > 0 && (
+                    <div className="mt-4 border rounded-lg overflow-hidden bg-white">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50 border-b">
+                          <tr>
+                            <th className="px-4 py-2 text-center">Barcode</th>
+                            <th className="px-4 py-2 text-left">Product</th>
+                            <th className="px-4 py-2 text-left">Model</th>
+                            <th className="px-4 py-2 text-left">Part No</th>
+                            <th className="px-4 py-2 text-left">Rack</th>
+                            <th className="px-4 py-2 text-center">Qty</th>
+                            <th className="px-4 py-2 text-right">Rate</th>
+                            <th className="px-4 py-2 text-right">Total</th>
+                            <th className="px-4 py-2 text-center">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {saleItems.map((item, idx) => (
+                            <tr key={idx} className="border-b last:border-0">
+                              <td className="px-4 py-2 text-center">{item.barcode || '-'}</td>
+                              <td className="px-4 py-2">{item.name}</td>
+                              <td className="px-4 py-2">{item.model}</td>
+                              <td className="px-4 py-2">{item.partNo}</td>
+                              <td className="px-4 py-2 text-primary font-bold">{item.rackNo || '-'}</td>
+                              <td className="px-4 py-2 text-center">{item.quantity}</td>
+                              <td className="px-4 py-2 text-right">{formatCurrency(item.rate)}</td>
+                              <td className="px-4 py-2 text-right font-bold">{formatCurrency(item.quantity * item.rate)}</td>
+                              <td className="px-4 py-2 text-center">
+                                <button type="button" onClick={() => removeSaleItem(idx)} className="text-red-500 hover:text-red-700">
+                                  Remove
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot className="bg-gray-50 font-bold">
+                          {(() => {
+                            const subtotal = saleItems.reduce((sum, item) => sum + (item.quantity * item.rate), 0);
+                            return (
+                              <tr className="text-lg border-t">
+                                <td colSpan={7} className="px-4 py-2 text-right">Grand Total:</td>
+                                <td className="px-4 py-2 text-right text-primary">{formatCurrency(subtotal)}</td>
+                                <td></td>
+                              </tr>
+                            );
+                          })()}
+                        </tfoot>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-4 border-t flex justify-end">
+                  <Button type="submit" className="px-12">Save & Print Invoice</Button>
                 </div>
               </form>
             </div>
@@ -529,6 +1111,7 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
                   { key: 'invoiceNo', label: 'Invoice' },
                   { key: 'date', label: 'Date' },
                   { key: 'customer', label: 'Customer' },
+                  { key: 'model', label: 'Model/Items' },
                   { key: 'total', label: 'Total', render: (val) => formatCurrency(val) },
                   { key: 'actions', label: 'Send', render: (_, row) => (
                     <div className="flex gap-2">
@@ -541,7 +1124,7 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
                 onEdit={(row) => { setEditingItem(row); setIsModalOpen(true); }}
                 onDelete={(row) => {
                   if (confirm('Are you sure you want to delete this sale?')) {
-                    setSales(sales.filter(s => s.id !== row.id));
+                    deleteSale(row.id);
                   }
                 }}
                 onPrint={(row) => window.print()}
@@ -598,7 +1181,7 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
                 onEdit={(row) => { setEditingItem(row); setIsModalOpen(true); }}
                 onDelete={(row) => {
                   if (confirm('Are you sure you want to delete this supplier?')) {
-                    setSuppliers(suppliers.filter(s => s.id !== row.id));
+                    deleteSupplier(row.id);
                   }
                 }}
                 onPrint={(row) => window.print()}

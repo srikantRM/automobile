@@ -27,7 +27,8 @@ import {
   PieChart,
   Scale,
   Book,
-  Layers
+  Layers,
+  Plus
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { ModuleType } from '../types';
@@ -175,7 +176,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ activeModule, onMenuClick }) => {
   return (
-    <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 md:px-8 sticky top-0 z-10 shadow-sm">
+    <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 md:px-8 z-10 shadow-sm shrink-0">
       <div className="flex items-center gap-4">
         <button 
           onClick={onMenuClick}
@@ -189,13 +190,19 @@ export const Header: React.FC<HeaderProps> = ({ activeModule, onMenuClick }) => 
       </div>
 
       <div className="flex items-center gap-3 md:gap-6">
-        <div className="relative hidden lg:block">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-          <input 
-            type="text" 
-            placeholder="Search records..." 
-            className="pl-10 pr-4 py-2 bg-gray-100 border-transparent focus:bg-white focus:border-primary/30 rounded-full text-sm transition-all w-48 xl:w-64 outline-none"
-          />
+        <div className="flex items-center gap-2">
+          <button className="hidden sm:flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-full text-sm font-bold shadow-lg hover:scale-105 transition-all active:scale-95">
+            <Plus size={18} />
+            <span>Quick Add</span>
+          </button>
+          <div className="relative hidden lg:block">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            <input 
+              type="text" 
+              placeholder="Search records..." 
+              className="pl-10 pr-4 py-2 bg-gray-100 border-transparent focus:bg-white focus:border-primary/30 rounded-full text-sm transition-all w-48 xl:w-64 outline-none"
+            />
+          </div>
         </div>
         
         <div className="flex items-center gap-2 md:gap-4">

@@ -14,6 +14,7 @@ import {
 import { Button, Input, DataTable, Modal, Select } from '../components/UI';
 import { formatCurrency, formatDate, cn } from '../lib/utils';
 import { JobCard, Mechanic } from '../types';
+import { useData } from '../hooks/useData';
 
 interface ServiceModuleProps {
   activeTab: string;
@@ -24,75 +25,84 @@ export const ServiceModule: React.FC<ServiceModuleProps> = ({ activeTab }) => {
   const [editingItem, setEditingItem] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [jobCards, setJobCards] = useState<JobCard[]>([]);
-
-  const [mechanics, setMechanics] = useState<Mechanic[]>([]);
-
+  const { data: jobCards, saveData: saveJobCard, updateData: updateJobCard, deleteData: deleteJobCard } = useData<JobCard>('job_cards');
+  const { data: mechanics, saveData: saveMechanic, updateData: updateMechanic, deleteData: deleteMechanic } = useData<Mechanic>('mechanics');
   const [assignments, setAssignments] = useState<any[]>([]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget as HTMLFormElement);
     const data = Object.fromEntries(formData.entries());
 
-    if (activeTab === 'jobcards') {
-      if (editingItem) {
-        setJobCards(jobCards.map(j => j.id === editingItem.id ? { ...j, ...data } as JobCard : j));
-      } else {
-        const newJobCard: JobCard = {
+    try {
+      if (activeTab === 'jobcards') {
+        if (editingItem) {
+          await updateJobCard(editingItem.id, { ...editingItem, ...data } as JobCard);
+        } else {
+          const newJobCard: JobCard = {
+            id: Math.random().toString(36).substr(2, 9),
+            customerName: data.customerName as string,
+            phone: data.phone as string,
+            vehicleNo: data.vehicleNo as string,
+            model: data.model as string,
+            km: Number(data.km),
+            dailyRunning: Number(data.dailyRunning),
+            fromKm: Number(data.fromKm),
+            toKm: Number(data.toKm),
+            problem: data.problem as string,
+            status: 'Pending',
+            partsPurchased: [],
+            serviceCharges: 0,
+            date: new Date().toISOString().split('T')[0],
+          };
+          await saveJobCard(newJobCard);
+        }
+      } else if (activeTab === 'assign') {
+        const newAssignment = {
           id: Math.random().toString(36).substr(2, 9),
-          customerName: data.customerName as string,
-          phone: data.phone as string,
-          vehicleNo: data.vehicleNo as string,
-          model: data.model as string,
-          km: Number(data.km),
-          dailyRunning: Number(data.dailyRunning),
-          fromKm: Number(data.fromKm),
-          toKm: Number(data.toKm),
-          problem: data.problem as string,
-          status: 'Pending',
-          partsPurchased: [],
-          serviceCharges: 0,
+          jobCardId: data.jobCardId as string,
+          mechanicId: data.mechanicId as string,
           date: new Date().toISOString().split('T')[0],
         };
-        setJobCards([...jobCards, newJobCard]);
+        setAssignments([newAssignment, ...assignments]);
+        
+        // Update job card status to 'In Progress'
+        const vehicleNo = (data.jobCardId as string).split(' - ')[0];
+        const jobCard = jobCards.find(j => j.vehicleNo === vehicleNo);
+        if (jobCard) {
+          await updateJobCard(jobCard.id, { ...jobCard, status: 'In Progress' });
+        }
+      } else if (activeTab === 'mechanics') {
+        if (editingItem) {
+          await updateMechanic(editingItem.id, { ...editingItem, ...data } as Mechanic);
+        } else {
+          const newMechanic: Mechanic = {
+            id: Math.random().toString(36).substr(2, 9),
+            name: data.name as string,
+            phone: data.phone as string,
+          };
+          await saveMechanic(newMechanic);
+        }
+      } else if (activeTab === 'billing') {
+        const jobCardId = data.jobCardId as string;
+        const jobCard = jobCards.find(j => j.id === jobCardId);
+        if (jobCard) {
+          await updateJobCard(jobCard.id, { 
+            ...jobCard, 
+            serviceCharges: Number(data.serviceCharges),
+            status: 'Completed'
+          });
+        }
       }
-    } else if (activeTab === 'assign') {
-      const newAssignment = {
-        id: Math.random().toString(36).substr(2, 9),
-        jobCardId: data.jobCardId as string,
-        mechanicId: data.mechanicId as string,
-        date: new Date().toISOString().split('T')[0],
-      };
-      setAssignments([newAssignment, ...assignments]);
-      
-      // Update job card status to 'In Progress'
-      const vehicleNo = (data.jobCardId as string).split(' - ')[0];
-      setJobCards(jobCards.map(j => j.vehicleNo === vehicleNo ? { ...j, status: 'In Progress' } : j));
-    } else if (activeTab === 'mechanics') {
-      if (editingItem) {
-        setMechanics(mechanics.map(m => m.id === editingItem.id ? { ...m, ...data } as Mechanic : m));
-      } else {
-        const newMechanic: Mechanic = {
-          id: Math.random().toString(36).substr(2, 9),
-          name: data.name as string,
-          phone: data.phone as string,
-        };
-        setMechanics([...mechanics, newMechanic]);
-      }
-    } else if (activeTab === 'billing') {
-      const jobCardId = data.jobCardId as string;
-      setJobCards(jobCards.map(j => j.id === jobCardId ? { 
-        ...j, 
-        serviceCharges: Number(data.serviceCharges),
-        partsCharges: Number(data.partsCharges)
-      } : j));
-    }
 
-    (e.target as HTMLFormElement).reset();
-    alert('Data saved successfully!');
-    setIsModalOpen(false);
-    setEditingItem(null);
+      (e.target as HTMLFormElement).reset();
+      alert('Data saved successfully!');
+      setIsModalOpen(false);
+      setEditingItem(null);
+    } catch (error) {
+      console.error('Error saving data:', error);
+      alert('Failed to save data.');
+    }
   };
 
   const renderContent = () => {
@@ -161,7 +171,7 @@ export const ServiceModule: React.FC<ServiceModuleProps> = ({ activeTab }) => {
                 onEdit={(row) => { setEditingItem(row); setIsModalOpen(true); }}
                 onDelete={(row) => {
                   if (confirm('Are you sure you want to delete this job card?')) {
-                    setJobCards(jobCards.filter(j => j.id !== row.id));
+                    deleteJobCard(row.id);
                   }
                 }}
                 onPrint={(row) => window.print()}
@@ -250,7 +260,7 @@ export const ServiceModule: React.FC<ServiceModuleProps> = ({ activeTab }) => {
                 onEdit={(row) => { setEditingItem(row); setIsModalOpen(true); }}
                 onDelete={(row) => {
                   if (confirm('Are you sure you want to delete this mechanic?')) {
-                    setMechanics(mechanics.filter(m => m.id !== row.id));
+                    deleteMechanic(row.id);
                   }
                 }}
                 onPrint={(row) => window.print()}
@@ -290,7 +300,7 @@ export const ServiceModule: React.FC<ServiceModuleProps> = ({ activeTab }) => {
                       variant="outline" 
                       className="text-blue-600 border-blue-200 hover:bg-blue-50"
                       onClick={() => {
-                        setJobCards(jobCards.map(j => j.id === row.id ? { ...j, status: 'In Progress' } : j));
+                        updateJobCard(row.id, { ...row, status: 'In Progress' });
                       }}
                     >
                       In Progress
@@ -300,7 +310,7 @@ export const ServiceModule: React.FC<ServiceModuleProps> = ({ activeTab }) => {
                       variant="outline" 
                       className="text-green-600 border-green-200 hover:bg-green-50"
                       onClick={() => {
-                        setJobCards(jobCards.map(j => j.id === row.id ? { ...j, status: 'Completed' } : j));
+                        updateJobCard(row.id, { ...row, status: 'Completed' });
                       }}
                     >
                       Completed
@@ -346,7 +356,7 @@ export const ServiceModule: React.FC<ServiceModuleProps> = ({ activeTab }) => {
                 onPrint={(row) => window.print()}
                 onDelete={(row) => {
                   if (confirm('Are you sure you want to delete this bill?')) {
-                    setJobCards(jobCards.map(j => j.id === row.id ? { ...j, serviceCharges: 0, partsCharges: 0 } : j));
+                    updateJobCard(row.id, { ...row, serviceCharges: 0, partsCharges: 0 });
                   }
                 }}
               />

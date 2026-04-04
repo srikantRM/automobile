@@ -15,6 +15,7 @@ import {
 import { Button, Input, DataTable, Modal, Select } from '../components/UI';
 import { formatCurrency, formatDate, cn } from '../lib/utils';
 import { Transaction } from '../types';
+import { useData } from '../hooks/useData';
 
 interface AccountsModuleProps {
   activeTab: string;
@@ -24,38 +25,43 @@ export const AccountsModule: React.FC<AccountsModuleProps> = ({ activeTab }) => 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const { data: transactions, saveData: saveTransaction, updateData: updateTransaction, deleteData: deleteTransaction } = useData<Transaction>('transactions');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget as HTMLFormElement);
     const data = Object.fromEntries(formData.entries());
 
-    if (editingItem) {
-      setTransactions(transactions.map(t => t.id === editingItem.id ? {
-        ...t,
-        date: data.date as string,
-        headId: data.headId as string,
-        amount: Number(data.amount),
-        type: data.type === 'Credit (Inflow)' ? 'Credit' : 'Debit',
-        description: data.description as string,
-      } as Transaction : t));
-    } else {
-      const newTransaction: Transaction = {
-        id: Math.random().toString(36).substr(2, 9),
-        date: data.date as string,
-        headId: data.headId as string,
-        amount: Number(data.amount),
-        type: data.type === 'Credit (Inflow)' ? 'Credit' : 'Debit',
-        description: data.description as string,
-      };
-      setTransactions([newTransaction, ...transactions]);
-    }
+    try {
+      if (editingItem) {
+        await updateTransaction(editingItem.id, {
+          ...editingItem,
+          date: data.date as string,
+          headId: data.headId as string,
+          amount: Number(data.amount),
+          type: data.type === 'Credit (Inflow)' ? 'Credit' : 'Debit',
+          description: data.description as string,
+        } as Transaction);
+      } else {
+        const newTransaction: Transaction = {
+          id: Math.random().toString(36).substr(2, 9),
+          date: data.date as string,
+          headId: data.headId as string,
+          amount: Number(data.amount),
+          type: data.type === 'Credit (Inflow)' ? 'Credit' : 'Debit',
+          description: data.description as string,
+        };
+        await saveTransaction(newTransaction);
+      }
 
-    (e.target as HTMLFormElement).reset();
-    alert('Transaction recorded successfully!');
-    setIsModalOpen(false);
-    setEditingItem(null);
+      (e.target as HTMLFormElement).reset();
+      alert('Transaction recorded successfully!');
+      setIsModalOpen(false);
+      setEditingItem(null);
+    } catch (error) {
+      console.error('Error saving transaction:', error);
+      alert('Failed to record transaction.');
+    }
   };
 
   const renderContent = () => {
@@ -140,7 +146,7 @@ export const AccountsModule: React.FC<AccountsModuleProps> = ({ activeTab }) => 
                 onEdit={(row) => { setEditingItem(row); setIsModalOpen(true); }}
                 onDelete={(row) => {
                   if (confirm('Are you sure you want to delete this entry?')) {
-                    setTransactions(transactions.filter(t => t.id !== row.id));
+                    deleteTransaction(row.id);
                   }
                 }}
                 onPrint={(row) => window.print()}
@@ -149,73 +155,100 @@ export const AccountsModule: React.FC<AccountsModuleProps> = ({ activeTab }) => 
           </div>
         );
       case 'pl':
+        const income = transactions.filter(t => t.type === 'Credit').reduce((acc, t) => acc + t.amount, 0);
+        const expenses = transactions.filter(t => t.type === 'Debit').reduce((acc, t) => acc + t.amount, 0);
+        const netProfit = income - expenses;
+
         return (
           <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm max-w-4xl mx-auto space-y-8">
             <div className="text-center border-b pb-6">
               <h2 className="text-2xl font-bold text-gray-800 uppercase tracking-tight">Profit & Loss Account</h2>
-              <p className="text-sm text-gray-500">For the period ending March 2024</p>
+              <p className="text-sm text-gray-500">For the period ending {formatDate(new Date().toISOString())}</p>
             </div>
             <div className="grid grid-cols-2 gap-12">
               <div className="space-y-4">
                 <h4 className="font-bold text-gray-400 uppercase text-xs tracking-widest border-b pb-2">Expenses</h4>
                 <div className="space-y-3">
-                  <div className="flex justify-between text-sm"><span>Cost of Goods Sold</span><span className="font-medium">₹85,000.00</span></div>
-                  <div className="flex justify-between text-sm"><span>Salaries & Wages</span><span className="font-medium">₹25,000.00</span></div>
-                  <div className="flex justify-between text-sm"><span>Rent & Utilities</span><span className="font-medium">₹12,000.00</span></div>
-                  <div className="flex justify-between text-sm"><span>Marketing</span><span className="font-medium">₹5,000.00</span></div>
-                  <div className="pt-4 border-t flex justify-between font-bold text-gray-800"><span>Total Expenses</span><span>₹1,27,000.00</span></div>
+                  {['Purchase', 'Rent', 'Salary', 'Electricity', 'Other'].map(head => {
+                    const amount = transactions.filter(t => t.type === 'Debit' && t.headId.includes(head)).reduce((acc, t) => acc + t.amount, 0);
+                    if (amount === 0 && head !== 'Other') return null;
+                    return (
+                      <div key={head} className="flex justify-between text-sm">
+                        <span>{head} Expense</span>
+                        <span className="font-medium">{formatCurrency(amount)}</span>
+                      </div>
+                    );
+                  })}
+                  <div className="pt-4 border-t flex justify-between font-bold text-gray-800">
+                    <span>Total Expenses</span>
+                    <span>{formatCurrency(expenses)}</span>
+                  </div>
                 </div>
               </div>
               <div className="space-y-4">
                 <h4 className="font-bold text-gray-400 uppercase text-xs tracking-widest border-b pb-2">Income</h4>
                 <div className="space-y-3">
-                  <div className="flex justify-between text-sm"><span>Sales Revenue</span><span className="font-medium">₹1,85,000.00</span></div>
-                  <div className="flex justify-between text-sm"><span>Service Revenue</span><span className="font-medium">₹22,000.00</span></div>
-                  <div className="flex justify-between text-sm"><span>Other Income</span><span className="font-medium">₹1,500.00</span></div>
-                  <div className="pt-4 border-t flex justify-between font-bold text-gray-800"><span>Total Income</span><span>₹2,08,500.00</span></div>
+                  {['Sales', 'Service', 'Other'].map(head => {
+                    const amount = transactions.filter(t => t.type === 'Credit' && t.headId.includes(head)).reduce((acc, t) => acc + t.amount, 0);
+                    if (amount === 0 && head !== 'Other') return null;
+                    return (
+                      <div key={head} className="flex justify-between text-sm">
+                        <span>{head} Revenue</span>
+                        <span className="font-medium">{formatCurrency(amount)}</span>
+                      </div>
+                    );
+                  })}
+                  <div className="pt-4 border-t flex justify-between font-bold text-gray-800">
+                    <span>Total Income</span>
+                    <span>{formatCurrency(income)}</span>
+                  </div>
                 </div>
               </div>
             </div>
-            <div className="bg-primary p-6 rounded-xl flex justify-between items-center text-white">
-              <span className="text-lg font-bold uppercase tracking-wider">Net Profit</span>
-              <span className="text-3xl font-bold">₹81,500.00</span>
+            <div className={cn(
+              "p-6 rounded-xl flex justify-between items-center text-white transition-colors",
+              netProfit >= 0 ? "bg-green-600" : "bg-red-600"
+            )}>
+              <span className="text-lg font-bold uppercase tracking-wider">{netProfit >= 0 ? 'Net Profit' : 'Net Loss'}</span>
+              <span className="text-3xl font-bold">{formatCurrency(Math.abs(netProfit))}</span>
             </div>
             <div className="flex justify-center gap-4">
-              <Button icon={<Printer size={18} />}>Print Statement</Button>
+              <Button icon={<Printer size={18} />} onClick={() => window.print()}>Print Statement</Button>
               <Button variant="secondary" icon={<FileText size={18} />}>Export PDF</Button>
             </div>
           </div>
         );
       case 'balance':
+        const totalAssets = transactions.filter(t => t.type === 'Credit').reduce((acc, t) => acc + t.amount, 0);
+        const totalLiabilities = transactions.filter(t => t.type === 'Debit').reduce((acc, t) => acc + t.amount, 0);
+        const cashInHand = totalAssets - totalLiabilities;
+
         return (
           <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm max-w-4xl mx-auto space-y-8">
             <div className="text-center border-b pb-6">
               <h2 className="text-2xl font-bold text-gray-800 uppercase tracking-tight">Balance Sheet</h2>
-              <p className="text-sm text-gray-500">As on March 31, 2024</p>
+              <p className="text-sm text-gray-500">As on {formatDate(new Date().toISOString())}</p>
             </div>
             <div className="grid grid-cols-2 gap-12">
               <div className="space-y-4">
-                <h4 className="font-bold text-gray-400 uppercase text-xs tracking-widest border-b pb-2">Liabilities</h4>
+                <h4 className="font-bold text-gray-400 uppercase text-xs tracking-widest border-b pb-2">Liabilities & Equity</h4>
                 <div className="space-y-3">
-                  <div className="flex justify-between text-sm"><span>Capital Account</span><span className="font-medium">₹5,00,000.00</span></div>
-                  <div className="flex justify-between text-sm"><span>Loans (Liability)</span><span className="font-medium">₹2,50,000.00</span></div>
-                  <div className="flex justify-between text-sm"><span>Current Liabilities</span><span className="font-medium">₹1,20,000.00</span></div>
-                  <div className="flex justify-between text-sm"><span>Profit for the Year</span><span className="font-medium">₹81,500.00</span></div>
-                  <div className="pt-4 border-t flex justify-between font-bold text-gray-800"><span>Total Liabilities</span><span>₹9,51,500.00</span></div>
+                  <div className="flex justify-between text-sm"><span>Capital Account</span><span className="font-medium">{formatCurrency(500000)}</span></div>
+                  <div className="flex justify-between text-sm"><span>Retained Earnings</span><span className="font-medium">{formatCurrency(cashInHand)}</span></div>
+                  <div className="pt-4 border-t flex justify-between font-bold text-gray-800"><span>Total Liabilities</span><span>{formatCurrency(500000 + cashInHand)}</span></div>
                 </div>
               </div>
               <div className="space-y-4">
                 <h4 className="font-bold text-gray-400 uppercase text-xs tracking-widest border-b pb-2">Assets</h4>
                 <div className="space-y-3">
-                  <div className="flex justify-between text-sm"><span>Fixed Assets</span><span className="font-medium">₹4,20,000.00</span></div>
-                  <div className="flex justify-between text-sm"><span>Current Assets</span><span className="font-medium">₹3,80,000.00</span></div>
-                  <div className="flex justify-between text-sm"><span>Cash-in-hand</span><span className="font-medium">₹1,51,500.00</span></div>
-                  <div className="pt-4 border-t flex justify-between font-bold text-gray-800"><span>Total Assets</span><span>₹9,51,500.00</span></div>
+                  <div className="flex justify-between text-sm"><span>Fixed Assets</span><span className="font-medium">{formatCurrency(420000)}</span></div>
+                  <div className="flex justify-between text-sm"><span>Cash-in-hand</span><span className="font-medium">{formatCurrency(80000 + cashInHand)}</span></div>
+                  <div className="pt-4 border-t flex justify-between font-bold text-gray-800"><span>Total Assets</span><span>{formatCurrency(500000 + cashInHand)}</span></div>
                 </div>
               </div>
             </div>
             <div className="flex justify-center gap-4">
-              <Button icon={<Printer size={18} />}>Print Sheet</Button>
+              <Button icon={<Printer size={18} />} onClick={() => window.print()}>Print Sheet</Button>
               <Button variant="secondary" icon={<FileText size={18} />}>Export PDF</Button>
             </div>
           </div>
@@ -263,20 +296,45 @@ export const AccountsModule: React.FC<AccountsModuleProps> = ({ activeTab }) => 
           </div>
         );
       case 'heads':
+        const { data: accountHeads, saveData: saveAccountHead, deleteData: deleteAccountHead } = useData<any>('account_heads');
+        
+        const handleAddHead = async (e: React.FormEvent) => {
+          e.preventDefault();
+          const formData = new FormData(e.currentTarget as HTMLFormElement);
+          const name = formData.get('name') as string;
+          const type = formData.get('type') as string;
+          
+          if (!name || !type) return;
+          
+          try {
+            await saveAccountHead({
+              id: Math.random().toString(36).substr(2, 9),
+              name,
+              type,
+              balance: 0
+            });
+            (e.target as HTMLFormElement).reset();
+            alert('Account head added successfully!');
+          } catch (error) {
+            console.error('Error adding account head:', error);
+            alert('Failed to add account head.');
+          }
+        };
+
         return (
           <div className="space-y-8">
             <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-6">
               <h3 className="font-bold text-gray-800 border-b pb-4">Add Account Head</h3>
-              <form className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
-                <Input label="Head Name" placeholder="e.g. Office Rent" required />
-                <Select label="Head Type" required>
+              <form onSubmit={handleAddHead} className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+                <Input label="Head Name" name="name" placeholder="e.g. Office Rent" required />
+                <Select label="Head Type" name="type" required>
                   <option value="Income">Income</option>
                   <option value="Expense">Expense</option>
                   <option value="Asset">Asset</option>
                   <option value="Liability">Liability</option>
                 </Select>
                 <div className="flex justify-end">
-                  <Button type="button" icon={<Plus size={18} />}>Add Head</Button>
+                  <Button type="submit" icon={<Plus size={18} />}>Add Head</Button>
                 </div>
               </form>
             </div>
@@ -286,15 +344,20 @@ export const AccountsModule: React.FC<AccountsModuleProps> = ({ activeTab }) => 
                 columns={[
                   { key: 'name', label: 'Head Name' },
                   { key: 'type', label: 'Type' },
-                  { key: 'balance', label: 'Current Balance', render: () => formatCurrency(0) },
+                  { key: 'balance', label: 'Current Balance', render: (val) => formatCurrency(val || 0) },
                 ]}
-                data={[
-                  { id: '1', name: 'Sales Income', type: 'Income' },
-                  { id: '2', name: 'Service Income', type: 'Income' },
-                  { id: '3', name: 'Purchase Expense', type: 'Expense' },
-                  { id: '4', name: 'Rent Expense', type: 'Expense' },
-                  { id: '5', name: 'Salary Expense', type: 'Expense' },
+                data={accountHeads.length > 0 ? accountHeads : [
+                  { id: '1', name: 'Sales Income', type: 'Income', balance: 0 },
+                  { id: '2', name: 'Service Income', type: 'Income', balance: 0 },
+                  { id: '3', name: 'Purchase Expense', type: 'Expense', balance: 0 },
+                  { id: '4', name: 'Rent Expense', type: 'Expense', balance: 0 },
+                  { id: '5', name: 'Salary Expense', type: 'Expense', balance: 0 },
                 ]}
+                onDelete={(row) => {
+                  if (confirm('Are you sure you want to delete this account head?')) {
+                    deleteAccountHead(row.id);
+                  }
+                }}
               />
             </div>
           </div>

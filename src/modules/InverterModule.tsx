@@ -38,6 +38,7 @@ import {
 import { Button, Input, DataTable, Modal, Select } from '../components/UI';
 import { formatCurrency, formatDate, cn } from '../lib/utils';
 import { InverterProduct, Customer, Supplier } from '../types';
+import { useData } from '../hooks/useData';
 
 interface InverterModuleProps {
   activeTab: string;
@@ -76,183 +77,168 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
 
   const COLORS = ['#ef4444', '#f97316', '#8b5cf6', '#10b981'];
 
-  // Mock Data
-  const [products, setProducts] = useState<InverterProduct[]>([
-    { id: '1', productCode: 'P001', barcode: '123456789012', name: 'Exide Invamaster', model: 'IMST1500', capacity: '150Ah', guarantee: '36 Months', gst: 18, warranty: '12 Months', hsnCode: '8507', extra: '', servicePeriod: 6, minQty: 5, stock: 12, sellingPrice: 15600, purchasePrice: 12500 },
-    { id: '2', productCode: 'P002', barcode: '123456789013', name: 'Luminous Red Charge', model: 'RC18000', capacity: '150Ah', guarantee: '42 Months', gst: 18, warranty: '18 Months', hsnCode: '8507', extra: '', servicePeriod: 6, minQty: 3, stock: 2, sellingPrice: 18500, purchasePrice: 14500 },
-  ]);
+  // Data Hooks
+  const { data: products, saveData: saveProduct, updateData: updateProduct, deleteData: deleteProduct } = useData<InverterProduct>('inverter_products');
+  const { data: customers, saveData: saveCustomer, updateData: updateCustomer, deleteData: deleteCustomer } = useData<Customer>('customers');
+  const { data: suppliers, saveData: saveSupplier, updateData: updateSupplier, deleteData: deleteSupplier } = useData<Supplier>('suppliers');
+  const { data: purchaseOrders, saveData: savePurchaseOrder, updateData: updatePurchaseOrder, deleteData: deletePurchaseOrder } = useData<any>('purchase_orders');
+  const { data: purchases, saveData: savePurchase, updateData: updatePurchase, deleteData: deletePurchase } = useData<any>('purchases');
+  const { data: sales, saveData: saveSale, updateData: updateSale, deleteData: deleteSale } = useData<any>('sales');
 
-  const [customers, setCustomers] = useState<Customer[]>([
-    { id: '1', customerCode: 'C001', name: 'John Doe', phone: '9876543210', address: '123 Main St' },
-  ]);
-
-  const [suppliers, setSuppliers] = useState<Supplier[]>([
-    { id: '1', supplierCode: 'S001', name: 'Battery World', address: '456 Market Rd', contactNo: '9988776655', gstNo: '27AAAAA0000A1Z5', city: 'Mumbai', state: 'Maharashtra', email: 'bw@example.com', balance: 45000 },
-  ]);
-
-  const [purchaseOrders, setPurchaseOrders] = useState<any[]>([
-    { id: '1', orderNo: 'PO-001', date: '2024-03-27', supplier: 'Battery World', model: 'IMST1500', total: 45000, status: 'Pending' }
-  ]);
-
-  const [purchases, setPurchases] = useState<any[]>([
-    { id: '1', invoiceNo: 'SUP-998', date: '2024-03-25', supplier: 'Battery World', model: 'RC18000', total: 125000, status: 'Received' }
-  ]);
-
-  const [sales, setSales] = useState<any[]>([
-    { id: '1', invoiceNo: 'INV-001', date: '2024-03-27', customer: 'John Doe', total: 15600, status: 'Paid' }
-  ]);
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget as HTMLFormElement);
     const data = Object.fromEntries(formData.entries());
     
-    if (activeTab === 'products') {
-      if (editingItem) {
-        setProducts(products.map(p => p.id === editingItem.id ? { ...p, ...data } as InverterProduct : p));
-      } else {
-        const newProduct: InverterProduct = {
-          id: Math.random().toString(36).substr(2, 9),
-          productCode: data.productCode as string || `P${(products.length + 1).toString().padStart(3, '0')}`,
-          barcode: data.barcode as string,
-          name: data.name as string,
-          model: data.model as string,
-          capacity: data.capacity as string,
-          guarantee: data.guarantee as string,
-          gst: Number(data.gst),
-          warranty: data.warranty as string,
-          hsnCode: data.hsnCode as string,
-          extra: data.extra as string,
-          servicePeriod: Number(data.servicePeriod),
-          minQty: Number(data.minQty),
-          stock: 0,
-        };
-        setProducts([...products, newProduct]);
-      }
-    } else if (activeTab === 'customers') {
-      if (editingItem) {
-        setCustomers(customers.map(c => c.id === editingItem.id ? { ...c, ...data } as Customer : c));
-      } else {
-        const newCustomer: Customer = {
-          id: Math.random().toString(36).substr(2, 9),
-          customerCode: data.customerCode as string || `C${(customers.length + 1).toString().padStart(3, '0')}`,
-          name: data.name as string,
-          phone: data.phone as string,
-          address: data.address as string,
-        };
-        setCustomers([...customers, newCustomer]);
-      }
-    } else if (activeTab === 'suppliers') {
-      if (editingItem) {
-        setSuppliers(suppliers.map(s => s.id === editingItem.id ? { ...s, ...data } as Supplier : s));
-      } else {
-        const newSupplier: Supplier = {
-          id: Math.random().toString(36).substr(2, 9),
-          supplierCode: data.supplierCode as string || `S${(suppliers.length + 1).toString().padStart(3, '0')}`,
-          name: data.name as string,
-          address: data.address as string,
-          contactNo: data.contactNo as string,
-          gstNo: data.gstNo as string,
-          city: data.city as string,
-          state: data.state as string,
-          email: data.email as string,
-          balance: 0,
-        };
-        setSuppliers([...suppliers, newSupplier]);
-      }
-    } else if (activeTab === 'orders') {
-      if (editingItem) {
-        setPurchaseOrders(purchaseOrders.map(o => o.id === editingItem.id ? { ...o, ...data } as any : o));
-      } else {
-        if (orderItems.length === 0) {
-          alert('Please add at least one product to the order.');
-          return;
+    try {
+      if (activeTab === 'products') {
+        if (editingItem) {
+          await updateProduct(editingItem.id, { ...editingItem, ...data } as InverterProduct);
+        } else {
+          const newProduct: InverterProduct = {
+            id: Math.random().toString(36).substr(2, 9),
+            productCode: data.productCode as string || `P${(products.length + 1).toString().padStart(3, '0')}`,
+            barcode: data.barcode as string,
+            name: data.name as string,
+            model: data.model as string,
+            capacity: data.capacity as string,
+            guarantee: data.guarantee as string,
+            gst: Number(data.gst),
+            warranty: data.warranty as string,
+            hsnCode: data.hsnCode as string,
+            extra: data.extra as string,
+            servicePeriod: Number(data.servicePeriod),
+            minQty: Number(data.minQty),
+            stock: 0,
+          };
+          await saveProduct(newProduct);
         }
-        const totalAmount = orderItems.reduce((sum, item) => sum + (item.quantity * item.rate), 0);
-        const newOrder = {
-          id: Math.random().toString(36).substr(2, 9),
-          orderNo: `PO-${(purchaseOrders.length + 1).toString().padStart(3, '0')}`,
-          date: data.date as string,
-          supplier: data.supplier as string,
-          items: orderItems,
-          model: orderItems.length === 1 ? orderItems[0].model : `${orderItems.length} Items`,
-          total: totalAmount,
-          status: 'Pending'
-        };
-        setPurchaseOrders([newOrder, ...purchaseOrders]);
-        setOrderItems([]); // Clear items after saving
-      }
-    } else if (activeTab === 'purchases') {
-      if (editingItem) {
-        setPurchases(purchases.map(p => p.id === editingItem.id ? { ...p, ...data } as any : p));
-      } else {
-        if (orderItems.length === 0) {
-          alert('Please add at least one product.');
-          return;
+      } else if (activeTab === 'customers') {
+        if (editingItem) {
+          await updateCustomer(editingItem.id, { ...editingItem, ...data } as Customer);
+        } else {
+          const newCustomer: Customer = {
+            id: Math.random().toString(36).substr(2, 9),
+            customerCode: data.customerCode as string || `C${(customers.length + 1).toString().padStart(3, '0')}`,
+            name: data.name as string,
+            phone: data.phone as string,
+            address: data.address as string,
+          };
+          await saveCustomer(newCustomer);
         }
-        const totalAmount = orderItems.reduce((sum, item) => sum + (item.quantity * item.rate), 0);
-        const newPurchase = {
-          id: Math.random().toString(36).substr(2, 9),
-          invoiceNo: data.invoiceNo as string,
-          date: data.date as string,
-          supplier: data.supplier as string,
-          items: orderItems,
-          model: orderItems.length === 1 ? orderItems[0].model : `${orderItems.length} Items`,
-          total: totalAmount,
-          status: 'Received'
-        };
-        setPurchases([newPurchase, ...purchases]);
-        
-        // Update stock for all items
-        const updatedProducts = [...products];
-        orderItems.forEach(item => {
-          const pIdx = updatedProducts.findIndex(p => p.id === item.productId);
-          if (pIdx !== -1) {
-            updatedProducts[pIdx] = { ...updatedProducts[pIdx], stock: updatedProducts[pIdx].stock + item.quantity };
+      } else if (activeTab === 'suppliers') {
+        if (editingItem) {
+          await updateSupplier(editingItem.id, { ...editingItem, ...data } as Supplier);
+        } else {
+          const newSupplier: Supplier = {
+            id: Math.random().toString(36).substr(2, 9),
+            supplierCode: data.supplierCode as string || `S${(suppliers.length + 1).toString().padStart(3, '0')}`,
+            name: data.name as string,
+            address: data.address as string,
+            contactNo: data.contactNo as string,
+            gstNo: data.gstNo as string,
+            city: data.city as string,
+            state: data.state as string,
+            email: data.email as string,
+            balance: 0,
+          };
+          await saveSupplier(newSupplier);
+        }
+      } else if (activeTab === 'orders') {
+        if (editingItem) {
+          await updatePurchaseOrder(editingItem.id, { ...editingItem, ...data } as any);
+        } else {
+          if (orderItems.length === 0) {
+            alert('Please add at least one product to the order.');
+            return;
           }
-        });
-        setProducts(updatedProducts);
-        setOrderItems([]);
-      }
-    } else if (activeTab === 'sales') {
-      if (editingItem) {
-        setSales(sales.map(s => s.id === editingItem.id ? { ...s, ...data } as any : s));
-      } else {
-        if (orderItems.length === 0) {
-          alert('Please add at least one product.');
-          return;
+          const totalAmount = orderItems.reduce((sum, item) => sum + (item.quantity * item.rate), 0);
+          const newOrder = {
+            id: Math.random().toString(36).substr(2, 9),
+            orderNo: `PO-${(purchaseOrders.length + 1).toString().padStart(3, '0')}`,
+            date: data.date as string,
+            supplier: data.supplier as string,
+            model: orderItems.length === 1 ? orderItems[0].model : `${orderItems.length} Items`,
+            total: totalAmount,
+            status: 'Pending'
+          };
+          await savePurchaseOrder(newOrder);
+          setOrderItems([]);
         }
-        const subtotal = orderItems.reduce((sum, item) => sum + (item.quantity * item.rate), 0);
-        const gst = subtotal * 0.18;
-        const totalAmount = subtotal + gst;
-        const newSale = {
-          id: Math.random().toString(36).substr(2, 9),
-          invoiceNo: `INV-${(sales.length + 1).toString().padStart(3, '0')}`,
-          date: data.date as string,
-          customer: data.customer as string,
-          items: orderItems,
-          total: totalAmount,
-          status: 'Paid'
-        };
-        setSales([newSale, ...sales]);
-        
-        // Update stock for all items
-        const updatedProducts = [...products];
-        orderItems.forEach(item => {
-          const pIdx = updatedProducts.findIndex(p => p.id === item.productId);
-          if (pIdx !== -1) {
-            updatedProducts[pIdx] = { ...updatedProducts[pIdx], stock: updatedProducts[pIdx].stock - item.quantity };
+      } else if (activeTab === 'purchases') {
+        if (editingItem) {
+          await updatePurchase(editingItem.id, { ...editingItem, ...data } as any);
+        } else {
+          if (orderItems.length === 0) {
+            alert('Please add at least one product.');
+            return;
           }
-        });
-        setProducts(updatedProducts);
-        setOrderItems([]);
+          const totalAmount = orderItems.reduce((sum, item) => sum + (item.quantity * item.rate), 0);
+          const newPurchase = {
+            id: Math.random().toString(36).substr(2, 9),
+            invoiceNo: data.invoiceNo as string,
+            date: data.date as string,
+            supplier: data.supplier as string,
+            model: orderItems.length === 1 ? orderItems[0].model : `${orderItems.length} Items`,
+            total: totalAmount,
+            status: 'Received'
+          };
+          await savePurchase(newPurchase);
+          
+          // Update stock for all items
+          for (const item of orderItems) {
+            const product = products.find(p => p.id === item.productId);
+            if (product) {
+              await updateProduct(product.id, { ...product, stock: product.stock + item.quantity });
+            }
+          }
+          setOrderItems([]);
+        }
+      } else if (activeTab === 'sales') {
+        if (editingItem) {
+          await updateSale(editingItem.id, { ...editingItem, ...data } as any);
+        } else {
+          if (orderItems.length === 0) {
+            alert('Please add at least one product.');
+            return;
+          }
+          const subtotal = orderItems.reduce((sum, item) => sum + (item.quantity * item.rate), 0);
+          const cgst = subtotal * 0.09;
+          const sgst = subtotal * 0.09;
+          const totalAmount = subtotal + cgst + sgst;
+          const newSale = {
+            id: Math.random().toString(36).substr(2, 9),
+            invoiceNo: `INV-${(sales.length + 1).toString().padStart(3, '0')}`,
+            date: data.date as string,
+            customer: data.customer as string,
+            subtotal,
+            cgst,
+            sgst,
+            total: totalAmount,
+            paymentMode: 'Cash',
+            items: orderItems
+          };
+          await saveSale(newSale);
+          
+          // Update stock for all items
+          for (const item of orderItems) {
+            const product = products.find(p => p.id === item.productId);
+            if (product) {
+              await updateProduct(product.id, { ...product, stock: product.stock - item.quantity });
+            }
+          }
+          setOrderItems([]);
+        }
       }
-    }
 
-    alert('Data saved successfully!');
-    (e.target as HTMLFormElement).reset();
-    setIsModalOpen(false);
-    setEditingItem(null);
+      alert('Data saved successfully!');
+      (e.target as HTMLFormElement).reset();
+      setIsModalOpen(false);
+      setEditingItem(null);
+    } catch (error) {
+      console.error('Error saving data:', error);
+      alert('Failed to save data. Please check your connection.');
+    }
   };
 
   const handleSave = (e: React.FormEvent) => {
@@ -269,8 +255,11 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
   const currentOrderItemRef = React.useRef(currentOrderItem);
   
   const updateCurrentOrderItem = (updated: any) => {
-    setCurrentOrderItem(updated);
-    currentOrderItemRef.current = updated;
+    setCurrentOrderItem(prev => {
+      const next = typeof updated === 'function' ? updated(prev) : updated;
+      currentOrderItemRef.current = next;
+      return next;
+    });
   };
 
   const renderContent = () => {
@@ -330,7 +319,7 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
                 onEdit={(row) => { setEditingItem(row); setIsModalOpen(true); }}
                 onDelete={(row) => {
                   if (confirm('Are you sure you want to delete this product?')) {
-                    setProducts(products.filter(p => p.id !== row.id));
+                    deleteProduct(row.id);
                   }
                 }}
                 onPrint={(row) => window.print()}
@@ -382,7 +371,7 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
                 onEdit={(row) => { setEditingItem(row); setIsModalOpen(true); }}
                 onDelete={(row) => {
                   if (confirm('Are you sure you want to delete this customer?')) {
-                    setCustomers(customers.filter(c => c.id !== row.id));
+                    deleteCustomer(row.id);
                   }
                 }}
                 onPrint={(row) => window.print()}
@@ -441,7 +430,7 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
                 onEdit={(row) => { setEditingItem(row); setIsModalOpen(true); }}
                 onDelete={(row) => {
                   if (confirm('Are you sure you want to delete this supplier?')) {
-                    setSuppliers(suppliers.filter(s => s.id !== row.id));
+                    deleteSupplier(row.id);
                   }
                 }}
                 onPrint={(row) => window.print()}
@@ -456,30 +445,32 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
         );
 
         const handleAddSaleItem = () => {
-          const item = currentOrderItemRef.current;
-          if (!item.productId || item.quantity <= 0 || item.rate <= 0) {
-            alert('Please select a product and enter valid quantity and rate.');
+          const current = currentOrderItemRef.current;
+          if (!current.productId || current.quantity <= 0) {
+            alert('Please select a product and enter a valid quantity.');
             return;
           }
-          const product = products.find(p => p.id === item.productId);
-          if (product) {
-            if (product.stock < item.quantity) {
-              alert(`Insufficient stock! Available: ${product.stock}`);
-              return;
-            }
-            const newItem = {
-              productId: product.id,
-              productCode: product.productCode,
-              barcode: product.barcode,
-              name: product.name,
-              model: item.model || product.model,
-              hsnCode: item.hsnCode || product.hsnCode,
-              quantity: item.quantity,
-              rate: item.rate
-            };
-            setOrderItems([...orderItems, newItem]);
-            updateCurrentOrderItem({ productId: '', productCode: '', barcode: '', model: '', hsnCode: '', quantity: 0, rate: 0, stock: 0 });
+          const product = products.find(p => p.id === current.productId);
+          if (!product) {
+            alert('Product not found.');
+            return;
           }
+          if (product.stock < current.quantity) {
+            alert(`Insufficient stock! Available: ${product.stock}`);
+            return;
+          }
+          const newItem = {
+            productId: product.id,
+            productCode: product.productCode,
+            barcode: product.barcode,
+            name: product.name,
+            model: current.model || product.model,
+            hsnCode: current.hsnCode || product.hsnCode,
+            quantity: current.quantity,
+            rate: current.rate
+          };
+          setOrderItems(prev => [...prev, newItem]);
+          updateCurrentOrderItem({ productId: '', productCode: '', barcode: '', model: '', hsnCode: '', quantity: 0, rate: 0, stock: 0 });
         };
 
         const removeSaleItem = (index: number) => {
@@ -487,6 +478,9 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
         };
 
         const subtotal = orderItems.reduce((sum, item) => sum + (item.quantity * item.rate), 0);
+        const cgst = subtotal * 0.09;
+        const sgst = subtotal * 0.09;
+        const grandTotal = subtotal + cgst + sgst;
 
         return (
           <div className="space-y-8">
@@ -501,15 +495,17 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
                     <option value="UPI">UPI</option>
                     <option value="Credit">Credit</option>
                   </Select>
-                  <Select label="Select Customer" name="customer" required className="md:col-span-3">
-                    <option value="">Select Customer</option>
-                    {customers.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                  </Select>
+                  <div className="md:col-span-3">
+                    <Input label="Customer Name" name="customer" list="customer-list" required placeholder="Select or enter customer name" />
+                    <datalist id="customer-list">
+                      {customers.map(c => <option key={c.id} value={c.name} />)}
+                    </datalist>
+                  </div>
                 </div>
 
                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-4">
                   <h4 className="text-sm font-bold text-gray-600 uppercase tracking-wider">Add Products</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
+                  <div className="grid grid-cols-1 md:grid-cols-7 gap-4 items-end">
                     <Input 
                       label="Barcode" 
                       value={currentOrderItem.barcode}
@@ -517,25 +513,19 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
                         const val = e.target.value.trim();
                         const p = products.find(prod => prod.barcode === val);
                         if (p) {
-                          updateCurrentOrderItem({
-                            ...currentOrderItem,
+                          updateCurrentOrderItem(prev => ({
+                            ...prev,
                             productId: p.id,
                             productCode: p.productCode,
                             barcode: p.barcode,
                             model: p.model,
                             hsnCode: p.hsnCode,
                             stock: p.stock,
-                            quantity: currentOrderItem.quantity || 1,
+                            quantity: prev.quantity || 1,
                             rate: p.sellingPrice || 0
-                          });
+                          }));
                         } else {
-                          updateCurrentOrderItem({ ...currentOrderItem, barcode: e.target.value });
-                        }
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleAddSaleItem();
+                          updateCurrentOrderItem(prev => ({ ...prev, barcode: e.target.value }));
                         }
                       }}
                     />
@@ -545,17 +535,21 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
                         value={currentOrderItem.productId}
                         onChange={(e) => {
                           const p = products.find(prod => prod.id === e.target.value);
-                          updateCurrentOrderItem({ 
-                            ...currentOrderItem, 
-                            productId: e.target.value, 
-                            productCode: p ? p.productCode : '',
-                            barcode: p ? p.barcode : '',
-                            model: p ? p.model : '',
-                            hsnCode: p ? p.hsnCode : '',
-                            stock: p ? p.stock : 0,
-                            quantity: currentOrderItem.quantity || 1,
-                            rate: p ? (p.sellingPrice || 0) : 0
-                          });
+                          if (p) {
+                            updateCurrentOrderItem(prev => ({ 
+                              ...prev, 
+                              productId: e.target.value, 
+                              productCode: p.productCode,
+                              barcode: p.barcode,
+                              model: p.model, 
+                              hsnCode: p.hsnCode,
+                              stock: p.stock,
+                              quantity: prev.quantity || 1,
+                              rate: p.sellingPrice || 0
+                            }));
+                          } else {
+                            updateCurrentOrderItem({ productId: '', productCode: '', barcode: '', model: '', hsnCode: '', quantity: 0, rate: 0, stock: 0 });
+                          }
                         }}
                       >
                         <option value="">Select Product</option>
@@ -568,25 +562,31 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
                     <Input 
                       label="Model" 
                       value={currentOrderItem.model}
-                      onChange={(e) => updateCurrentOrderItem({ ...currentOrderItem, model: e.target.value })}
+                      onChange={(e) => updateCurrentOrderItem(prev => ({ ...prev, model: e.target.value }))}
                     />
                     <Input 
                       label="HSN Code" 
                       value={currentOrderItem.hsnCode}
-                      onChange={(e) => updateCurrentOrderItem({ ...currentOrderItem, hsnCode: e.target.value })}
+                      onChange={(e) => updateCurrentOrderItem(prev => ({ ...prev, hsnCode: e.target.value }))}
                     />
                     <Input 
                       label="Quantity" 
                       type="number" 
                       value={currentOrderItem.quantity || ''}
-                      onChange={(e) => updateCurrentOrderItem({ ...currentOrderItem, quantity: Number(e.target.value) })}
+                      onChange={(e) => updateCurrentOrderItem(prev => ({ ...prev, quantity: Number(e.target.value) }))}
                     />
                     <Input 
                       label="Rate" 
                       type="number" 
                       value={currentOrderItem.rate || ''}
-                      onChange={(e) => updateCurrentOrderItem({ ...currentOrderItem, rate: Number(e.target.value) })}
+                      onChange={(e) => updateCurrentOrderItem(prev => ({ ...prev, rate: Number(e.target.value) }))}
                     />
+                    <div className="flex justify-end">
+                      <Button type="button" variant="secondary" onClick={handleAddSaleItem} className="w-full">
+                        Add to Invoice
+                      </Button>
+                    </div>
+
                     {currentOrderItem.productId && (
                       <div className="col-span-full grid grid-cols-2 md:grid-cols-4 gap-4 text-[11px] bg-blue-50 p-3 rounded-xl border border-blue-100 mt-2">
                         <div><span className="font-bold text-blue-600 uppercase">Product Code:</span> {currentOrderItem.productCode}</div>
@@ -595,11 +595,6 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
                         <div><span className="font-bold text-blue-600 uppercase">Warranty:</span> {products.find(p => p.id === currentOrderItem.productId)?.warranty}</div>
                       </div>
                     )}
-                    <div className="md:col-span-6 flex justify-end">
-                      <Button type="button" variant="secondary" onClick={handleAddSaleItem} className="w-full md:w-auto px-12">
-                        Add to Invoice
-                      </Button>
-                    </div>
                   </div>
 
                   {orderItems.length > 0 && (
@@ -637,23 +632,23 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
                         </tbody>
                         <tfoot className="bg-gray-50 font-bold">
                           <tr className="border-t">
-                            <td colSpan={7} className="px-4 py-2 text-right">Subtotal:</td>
+                            <td colSpan={6} className="px-4 py-2 text-right">Subtotal:</td>
                             <td className="px-4 py-2 text-right">{formatCurrency(subtotal)}</td>
                             <td></td>
                           </tr>
-                          <tr>
-                            <td colSpan={7} className="px-4 py-2 text-right text-gray-600">CGST (9%):</td>
-                            <td className="px-4 py-2 text-right text-gray-600">{formatCurrency(subtotal * 0.09)}</td>
+                          <tr className="border-t">
+                            <td colSpan={6} className="px-4 py-2 text-right">CGST (9%):</td>
+                            <td className="px-4 py-2 text-right">{formatCurrency(cgst)}</td>
                             <td></td>
                           </tr>
-                          <tr>
-                            <td colSpan={7} className="px-4 py-2 text-right text-gray-600">SGST (9%):</td>
-                            <td className="px-4 py-2 text-right text-gray-600">{formatCurrency(subtotal * 0.09)}</td>
+                          <tr className="border-t">
+                            <td colSpan={6} className="px-4 py-2 text-right">SGST (9%):</td>
+                            <td className="px-4 py-2 text-right">{formatCurrency(sgst)}</td>
                             <td></td>
                           </tr>
-                          <tr className="text-lg">
-                            <td colSpan={7} className="px-4 py-2 text-right">Grand Total:</td>
-                            <td className="px-4 py-2 text-right text-primary">{formatCurrency(subtotal * 1.18)}</td>
+                          <tr className="text-lg border-t bg-primary/5">
+                            <td colSpan={6} className="px-4 py-2 text-right">Grand Total:</td>
+                            <td className="px-4 py-2 text-right text-primary">{formatCurrency(grandTotal)}</td>
                             <td></td>
                           </tr>
                         </tfoot>
@@ -699,7 +694,7 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
                 onEdit={(row) => { setEditingItem(row); setIsModalOpen(true); }}
                 onDelete={(row) => {
                   if (confirm('Are you sure you want to delete this sale?')) {
-                    setSales(sales.filter(s => s.id !== row.id));
+                    deleteSale(row.id);
                   }
                 }}
                 onPrint={(row) => window.print()}
@@ -715,28 +710,28 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
         );
 
         const handleAddOrderItem = () => {
-          const item = currentOrderItemRef.current;
-          if (!item.productId || item.quantity <= 0 || item.rate <= 0) {
-            alert('Please select a product and enter valid quantity and rate.');
+          const current = currentOrderItemRef.current;
+          if (!current.productId || current.quantity <= 0) {
+            alert('Please select a product and enter a valid quantity.');
             return;
           }
-          const product = products.find(p => p.id === item.productId);
-          if (product) {
-            const newItem = {
-              productId: product.id,
-              productCode: product.productCode,
-              barcode: product.barcode,
-              name: product.name,
-              model: item.model || product.model,
-              hsnCode: item.hsnCode || product.hsnCode,
-              quantity: item.quantity,
-              rate: item.rate
-            };
-            setOrderItems([...orderItems, newItem]);
-            updateCurrentOrderItem({ productId: '', productCode: '', barcode: '', model: '', hsnCode: '', quantity: 0, rate: 0, stock: 0 });
-          } else {
-            console.error('Product not found:', item.productId);
+          const product = products.find(p => p.id === current.productId);
+          if (!product) {
+            alert('Product not found.');
+            return;
           }
+          const newItem = {
+            productId: product.id,
+            productCode: product.productCode,
+            barcode: product.barcode,
+            name: product.name,
+            model: current.model || product.model,
+            hsnCode: current.hsnCode || product.hsnCode,
+            quantity: current.quantity,
+            rate: current.rate
+          };
+          setOrderItems(prev => [...prev, newItem]);
+          updateCurrentOrderItem({ productId: '', productCode: '', barcode: '', model: '', hsnCode: '', quantity: 0, rate: 0, stock: 0 });
         };
 
         const removeOrderItem = (index: number) => {
@@ -759,7 +754,7 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
 
                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-4">
                   <h4 className="text-sm font-bold text-gray-600 uppercase tracking-wider">Add Products</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
+                  <div className="grid grid-cols-1 md:grid-cols-7 gap-4 items-end">
                     <Input 
                       label="Barcode" 
                       value={currentOrderItem.barcode}
@@ -767,25 +762,19 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
                         const val = e.target.value.trim();
                         const p = products.find(prod => prod.barcode === val);
                         if (p) {
-                          updateCurrentOrderItem({
-                            ...currentOrderItem,
+                          updateCurrentOrderItem(prev => ({
+                            ...prev,
                             productId: p.id,
                             productCode: p.productCode,
                             barcode: p.barcode,
                             model: p.model,
                             hsnCode: p.hsnCode,
                             stock: p.stock,
-                            quantity: currentOrderItem.quantity || 1,
+                            quantity: prev.quantity || 1,
                             rate: p.purchasePrice || 0
-                          });
+                          }));
                         } else {
-                          updateCurrentOrderItem({ ...currentOrderItem, barcode: e.target.value });
-                        }
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleAddOrderItem();
+                          updateCurrentOrderItem(prev => ({ ...prev, barcode: e.target.value }));
                         }
                       }}
                     />
@@ -795,17 +784,21 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
                         value={currentOrderItem.productId}
                         onChange={(e) => {
                           const p = products.find(prod => prod.id === e.target.value);
-                          updateCurrentOrderItem({ 
-                            ...currentOrderItem, 
-                            productId: e.target.value, 
-                            productCode: p ? p.productCode : '',
-                            barcode: p ? p.barcode : '',
-                            model: p ? p.model : '',
-                            hsnCode: p ? p.hsnCode : '',
-                            stock: p ? p.stock : 0,
-                            quantity: currentOrderItem.quantity || 1,
-                            rate: p ? (p.purchasePrice || 0) : 0
-                          });
+                          if (p) {
+                            updateCurrentOrderItem(prev => ({ 
+                              ...prev, 
+                              productId: e.target.value, 
+                              productCode: p.productCode,
+                              barcode: p.barcode,
+                              model: p.model, 
+                              hsnCode: p.hsnCode,
+                              stock: p.stock,
+                              quantity: prev.quantity || 1,
+                              rate: p.purchasePrice || 0
+                            }));
+                          } else {
+                            updateCurrentOrderItem({ productId: '', productCode: '', barcode: '', model: '', hsnCode: '', quantity: 0, rate: 0, stock: 0 });
+                          }
                         }}
                       >
                         <option value="">Select Product</option>
@@ -815,20 +808,26 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
                     <Input 
                       label="Model" 
                       value={currentOrderItem.model}
-                      onChange={(e) => updateCurrentOrderItem({ ...currentOrderItem, model: e.target.value })}
+                      onChange={(e) => updateCurrentOrderItem(prev => ({ ...prev, model: e.target.value }))}
                     />
                     <Input 
                       label="Quantity" 
                       type="number" 
                       value={currentOrderItem.quantity || ''}
-                      onChange={(e) => updateCurrentOrderItem({ ...currentOrderItem, quantity: Number(e.target.value) })}
+                      onChange={(e) => updateCurrentOrderItem(prev => ({ ...prev, quantity: Number(e.target.value) }))}
                     />
                     <Input 
                       label="Rate" 
                       type="number" 
                       value={currentOrderItem.rate || ''}
-                      onChange={(e) => updateCurrentOrderItem({ ...currentOrderItem, rate: Number(e.target.value) })}
+                      onChange={(e) => updateCurrentOrderItem(prev => ({ ...prev, rate: Number(e.target.value) }))}
                     />
+                    <div className="md:col-span-2 flex justify-end">
+                      <Button type="button" variant="secondary" onClick={handleAddOrderItem} className="w-full">
+                        Add to List
+                      </Button>
+                    </div>
+
                     {currentOrderItem.productId && (
                       <div className="col-span-full grid grid-cols-2 md:grid-cols-4 gap-4 text-[11px] bg-blue-50 p-3 rounded-xl border border-blue-100 mt-2">
                         <div><span className="font-bold text-blue-600 uppercase">Product Code:</span> {currentOrderItem.productCode}</div>
@@ -837,9 +836,6 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
                         <div><span className="font-bold text-blue-600 uppercase">Warranty:</span> {products.find(p => p.id === currentOrderItem.productId)?.warranty}</div>
                       </div>
                     )}
-                    <Button type="button" variant="secondary" onClick={handleAddOrderItem} className="w-full">
-                      Add to List
-                    </Button>
                   </div>
 
                   {orderItems.length > 0 && (
@@ -919,7 +915,7 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
                 onEdit={(row) => { setEditingItem(row); setIsModalOpen(true); }}
                 onDelete={(row) => {
                   if (confirm('Are you sure you want to delete this order?')) {
-                    setPurchaseOrders(purchaseOrders.filter(o => o.id !== row.id));
+                    deletePurchaseOrder(row.id);
                   }
                 }}
                 onPrint={(row) => window.print()}
@@ -935,28 +931,28 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
         );
 
         const handleAddPurchaseItem = () => {
-          const item = currentOrderItemRef.current;
-          if (!item.productId || item.quantity <= 0 || item.rate <= 0) {
-            alert('Please select a product and enter valid quantity and rate.');
+          const current = currentOrderItemRef.current;
+          if (!current.productId || current.quantity <= 0) {
+            alert('Please select a product and enter a valid quantity.');
             return;
           }
-          const product = products.find(p => p.id === item.productId);
-          if (product) {
-            const newItem = {
-              productId: product.id,
-              productCode: product.productCode,
-              barcode: product.barcode,
-              name: product.name,
-              model: item.model || product.model,
-              hsnCode: item.hsnCode || product.hsnCode,
-              quantity: item.quantity,
-              rate: item.rate
-            };
-            setOrderItems([...orderItems, newItem]);
-            updateCurrentOrderItem({ productId: '', productCode: '', barcode: '', model: '', hsnCode: '', quantity: 0, rate: 0, stock: 0 });
-          } else {
-            console.error('Product not found:', item.productId);
+          const product = products.find(p => p.id === current.productId);
+          if (!product) {
+            alert('Product not found.');
+            return;
           }
+          const newItem = {
+            productId: product.id,
+            productCode: product.productCode,
+            barcode: product.barcode,
+            name: product.name,
+            model: current.model || product.model,
+            hsnCode: current.hsnCode || product.hsnCode,
+            quantity: current.quantity,
+            rate: current.rate
+          };
+          setOrderItems(prev => [...prev, newItem]);
+          updateCurrentOrderItem({ productId: '', productCode: '', barcode: '', model: '', hsnCode: '', quantity: 0, rate: 0, stock: 0 });
         };
 
         const removePurchaseItem = (index: number) => {
@@ -979,7 +975,7 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
 
                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-4">
                   <h4 className="text-sm font-bold text-gray-600 uppercase tracking-wider">Add Products</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
+                  <div className="grid grid-cols-1 md:grid-cols-7 gap-4 items-end">
                     <Input 
                       label="Barcode" 
                       value={currentOrderItem.barcode}
@@ -987,25 +983,19 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
                         const val = e.target.value.trim();
                         const p = products.find(prod => prod.barcode === val);
                         if (p) {
-                          updateCurrentOrderItem({
-                            ...currentOrderItem,
+                          updateCurrentOrderItem(prev => ({
+                            ...prev,
                             productId: p.id,
                             productCode: p.productCode,
                             barcode: p.barcode,
                             model: p.model,
                             hsnCode: p.hsnCode,
                             stock: p.stock,
-                            quantity: currentOrderItem.quantity || 1,
+                            quantity: prev.quantity || 1,
                             rate: p.purchasePrice || 0
-                          });
+                          }));
                         } else {
-                          updateCurrentOrderItem({ ...currentOrderItem, barcode: e.target.value });
-                        }
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleAddPurchaseItem();
+                          updateCurrentOrderItem(prev => ({ ...prev, barcode: e.target.value }));
                         }
                       }}
                     />
@@ -1015,17 +1005,21 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
                         value={currentOrderItem.productId}
                         onChange={(e) => {
                           const p = products.find(prod => prod.id === e.target.value);
-                          updateCurrentOrderItem({ 
-                            ...currentOrderItem, 
-                            productId: e.target.value, 
-                            productCode: p ? p.productCode : '',
-                            barcode: p ? p.barcode : '',
-                            model: p ? p.model : '', 
-                            hsnCode: p ? p.hsnCode : '',
-                            stock: p ? p.stock : 0,
-                            quantity: currentOrderItem.quantity || 1,
-                            rate: p ? (p.purchasePrice || 0) : 0
-                          });
+                          if (p) {
+                            updateCurrentOrderItem(prev => ({ 
+                              ...prev, 
+                              productId: e.target.value, 
+                              productCode: p.productCode,
+                              barcode: p.barcode,
+                              model: p.model, 
+                              hsnCode: p.hsnCode,
+                              stock: p.stock,
+                              quantity: prev.quantity || 1,
+                              rate: p.purchasePrice || 0
+                            }));
+                          } else {
+                            updateCurrentOrderItem({ productId: '', productCode: '', barcode: '', model: '', hsnCode: '', quantity: 0, rate: 0, stock: 0 });
+                          }
                         }}
                       >
                         <option value="">Select Product</option>
@@ -1038,25 +1032,31 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
                     <Input 
                       label="Model" 
                       value={currentOrderItem.model}
-                      onChange={(e) => updateCurrentOrderItem({ ...currentOrderItem, model: e.target.value })}
+                      onChange={(e) => updateCurrentOrderItem(prev => ({ ...prev, model: e.target.value }))}
                     />
                     <Input 
                       label="HSN Code" 
                       value={currentOrderItem.hsnCode}
-                      onChange={(e) => updateCurrentOrderItem({ ...currentOrderItem, hsnCode: e.target.value })}
+                      onChange={(e) => updateCurrentOrderItem(prev => ({ ...prev, hsnCode: e.target.value }))}
                     />
                     <Input 
                       label="Quantity" 
                       type="number" 
                       value={currentOrderItem.quantity || ''}
-                      onChange={(e) => updateCurrentOrderItem({ ...currentOrderItem, quantity: Number(e.target.value) })}
+                      onChange={(e) => updateCurrentOrderItem(prev => ({ ...prev, quantity: Number(e.target.value) }))}
                     />
                     <Input 
                       label="Rate" 
                       type="number" 
                       value={currentOrderItem.rate || ''}
-                      onChange={(e) => updateCurrentOrderItem({ ...currentOrderItem, rate: Number(e.target.value) })}
+                      onChange={(e) => updateCurrentOrderItem(prev => ({ ...prev, rate: Number(e.target.value) }))}
                     />
+                    <div className="flex justify-end">
+                      <Button type="button" variant="secondary" onClick={handleAddPurchaseItem} className="w-full">
+                        Add to List
+                      </Button>
+                    </div>
+
                     {currentOrderItem.productId && (
                       <div className="col-span-full grid grid-cols-2 md:grid-cols-4 gap-4 text-[11px] bg-blue-50 p-3 rounded-xl border border-blue-100 mt-2">
                         <div><span className="font-bold text-blue-600 uppercase">Product Code:</span> {currentOrderItem.productCode}</div>
@@ -1065,11 +1065,6 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
                         <div><span className="font-bold text-blue-600 uppercase">Warranty:</span> {products.find(p => p.id === currentOrderItem.productId)?.warranty}</div>
                       </div>
                     )}
-                    <div className="md:col-span-6 flex justify-end">
-                      <Button type="button" variant="secondary" onClick={handleAddPurchaseItem} className="w-full md:w-auto px-12">
-                        Add to List
-                      </Button>
-                    </div>
                   </div>
 
                   {orderItems.length > 0 && (
@@ -1151,7 +1146,7 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
                 onEdit={(row) => { setEditingItem(row); setIsModalOpen(true); }}
                 onDelete={(row) => {
                   if (confirm('Are you sure you want to delete this purchase?')) {
-                    setPurchases(purchases.filter(p => p.id !== row.id));
+                    deletePurchase(row.id);
                   }
                 }}
                 onPrint={(row) => window.print()}
@@ -1220,20 +1215,24 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm print:border print:shadow-none">
                       <p className="text-gray-400 text-xs font-bold uppercase mb-1">Total Sales</p>
-                      <h4 className="text-2xl font-bold text-gray-800">{formatCurrency(32100)}</h4>
+                      <h4 className="text-2xl font-bold text-gray-800">{formatCurrency(sales.reduce((acc, s) => acc + s.total, 0))}</h4>
                       <p className="text-[10px] text-green-600 font-bold mt-1 flex items-center gap-1">
-                        <TrendingUp size={10} /> +8.2% from yesterday
+                        <TrendingUp size={10} /> Based on {sales.length} invoices
                       </p>
                     </div>
                     <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm print:border print:shadow-none">
-                      <p className="text-gray-400 text-xs font-bold uppercase mb-1">Total Invoices</p>
-                      <h4 className="text-2xl font-bold text-gray-800">12</h4>
-                      <p className="text-[10px] text-blue-600 font-bold mt-1">Average ₹2,675 per sale</p>
+                      <p className="text-gray-400 text-xs font-bold uppercase mb-1">Average Sale Value</p>
+                      <h4 className="text-2xl font-bold text-gray-800">
+                        {sales.length > 0 ? formatCurrency(sales.reduce((acc, s) => acc + s.total, 0) / sales.length) : '₹0.00'}
+                      </h4>
+                      <p className="text-[10px] text-blue-600 font-bold mt-1">Across all customers</p>
                     </div>
                     <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm print:border print:shadow-none">
-                      <p className="text-gray-400 text-xs font-bold uppercase mb-1">Top Payment Mode</p>
-                      <h4 className="text-2xl font-bold text-gray-800">UPI</h4>
-                      <p className="text-[10px] text-purple-600 font-bold mt-1">65% of total transactions</p>
+                      <p className="text-gray-400 text-xs font-bold uppercase mb-1">Total Items Sold</p>
+                      <h4 className="text-2xl font-bold text-gray-800">
+                        {sales.reduce((acc, s) => acc + (s.items?.reduce((sum: number, i: any) => sum + i.quantity, 0) || 0), 0)}
+                      </h4>
+                      <p className="text-[10px] text-purple-600 font-bold mt-1">Units delivered</p>
                     </div>
                   </div>
 
@@ -1285,14 +1284,10 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
                       { key: 'date', label: 'Date' },
                       { key: 'invoiceNo', label: 'Invoice' },
                       { key: 'customer', label: 'Customer' },
-                      { key: 'amount', label: 'Amount', render: (val) => formatCurrency(val) },
-                      { key: 'paymentMode', label: 'Mode' },
+                      { key: 'total', label: 'Amount', render: (val) => formatCurrency(val) },
+                      { key: 'status', label: 'Status', render: () => 'Paid' },
                     ]}
-                    data={[
-                      { date: '2024-03-27', invoiceNo: 'INV-001', customer: 'John Doe', amount: 15600, paymentMode: 'UPI' },
-                      { date: '2024-03-27', invoiceNo: 'INV-002', customer: 'Walk-in', amount: 4500, paymentMode: 'Cash' },
-                      { date: '2024-03-26', invoiceNo: 'INV-003', customer: 'Rahul Kumar', amount: 12000, paymentMode: 'Credit' },
-                    ]}
+                    data={sales.slice(-10).reverse()}
                   />
                 </div>
               )}
