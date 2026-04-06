@@ -37,6 +37,11 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
   const { data: purchases, saveData: savePurchase, updateData: updatePurchase, deleteData: deletePurchase } = useData<any>('purchases');
   const { data: sales, saveData: saveSale, updateData: updateSale, deleteData: deleteSale } = useData<any>('sales');
   const { data: payments, saveData: savePayment, updateData: updatePayment, deleteData: deletePayment } = useData<any>('transactions');
+  const { data: jobCards } = useData<any>('job_cards');
+
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [customerSuggestions, setCustomerSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   const [orderItems, setOrderItems] = useState<any[]>([]);
   const [currentOrderItem, setCurrentOrderItem] = useState<any>({
@@ -189,7 +194,8 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
       partNo: product.partNo,
       rackNo: product.rackNo,
       quantity: current.quantity,
-      rate: current.rate
+      rate: current.rate,
+      gst: product.gst || 0
     };
 
     setSaleItems(prev => [...prev, newItem]);
@@ -304,16 +310,24 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
             alert('Please add at least one product to the invoice.');
             return;
           }
-          const totalAmount = saleItems.reduce((sum, item) => sum + (item.quantity * item.rate), 0);
+          const totalAmount = saleItems.reduce((sum, item) => {
+            const itemTotal = item.quantity * item.rate;
+            const gstAmount = itemTotal * (item.gst / 100);
+            return sum + itemTotal + gstAmount;
+          }, 0);
           const newSale = {
             id: Math.random().toString(36).substr(2, 9),
             invoiceNo: data.invoiceNo || `AS-${(sales.length + 1).toString().padStart(3, '0')}`,
             date: data.date as string,
             customer: data.customer as string,
             phone: data.phone as string,
+            vehicleNo: data.vehicleNo as string,
+            jobCardNo: data.jobCardNo as string,
+            paymentType: data.paymentType as string,
             model: saleItems.length === 1 ? saleItems[0].model : `${saleItems.length} Items`,
             total: totalAmount,
-            status: 'Paid'
+            status: 'Paid',
+            source: 'Direct Sale'
           };
           await saveSale(newSale);
           
@@ -326,8 +340,10 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
           }
           
           setSaleItems([]);
+          setCustomerSearch('');
         }
-      } else if (activeTab === 'payments') {
+      }
+ else if (activeTab === 'payments') {
         if (editingItem) {
           await updatePayment(editingItem.id, { ...editingItem, ...data } as any);
         } else {
@@ -369,9 +385,9 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
         return (
           <div className="space-y-8">
             <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-6">
-              <h3 className="font-bold text-gray-800 border-b pb-4">Add New Part</h3>
+              <h3 className="font-bold text-gray-800 border-b pb-4">Add New Product</h3>
               <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
-                <Input label="Part Name" name="name" placeholder="Ex: Brake Pad" required />
+                <Input label="Product Name" name="name" placeholder="Ex: Brake Pad" required />
                 <Input label="Company" name="company" placeholder="Ex: Bosch" required />
                 <Input label="Model" name="model" placeholder="Ex: Swift" required />
                 <Input label="Part No" name="partNo" placeholder="Ex: BP-123" required />
@@ -383,17 +399,17 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
                 <Input label="Purchase Rate" name="purchaseRate" type="number" required />
                 <Input label="MRP" name="mrp" type="number" required />
                 <div className="md:col-span-4 flex justify-end">
-                  <Button type="submit" icon={<Plus size={18} />}>Save Part</Button>
+                  <Button type="submit" icon={<Plus size={18} />}>Save Product</Button>
                 </div>
               </form>
             </div>
 
             <div className="space-y-4">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 px-2">
-                <h3 className="text-xl font-bold text-gray-800">Auto Parts Inventory</h3>
+                <h3 className="text-xl font-bold text-gray-800">Product Inventory</h3>
                 <div className="w-full md:w-64">
                   <Input 
-                    placeholder="Search parts..." 
+                    placeholder="Search products..." 
                     icon={<Search size={16} />} 
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -414,7 +430,7 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
                 data={filteredProducts}
                 onEdit={(row) => { setEditingItem(row); setIsModalOpen(true); }}
                 onDelete={(row) => {
-                  if (confirm('Are you sure you want to delete this part?')) {
+                  if (confirm('Are you sure you want to delete this product?')) {
                     deleteProduct(row.id);
                   }
                 }}
@@ -937,10 +953,13 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
           </div>
         );
       case 'sales':
+        const today = new Date().toISOString().split('T')[0];
         const filteredSales = sales.filter(s => 
-          s.invoiceNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          s.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (s.model && s.model.toLowerCase().includes(searchQuery.toLowerCase()))
+          s.date === today && (
+            s.invoiceNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            s.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (s.model && s.model.toLowerCase().includes(searchQuery.toLowerCase()))
+          )
         );
         return (
           <div className="space-y-8">
@@ -950,8 +969,85 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <Input label="Invoice No" name="invoiceNo" defaultValue={`AS-${(sales.length + 1).toString().padStart(3, '0')}`} disabled />
                   <Input label="Date" name="date" type="date" defaultValue={new Date().toISOString().split('T')[0]} required />
-                  <Input label="Customer Name" name="customer" placeholder="Walk-in Customer" required />
-                  <Input label="Phone No" name="phone" className="md:col-span-3" />
+                  <div className="relative">
+                    <Input 
+                      label="Customer Name" 
+                      name="customer" 
+                      placeholder="Search by Job Card / Vehicle / Name" 
+                      required 
+                      value={customerSearch}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setCustomerSearch(val);
+                        if (val.length > 0) {
+                          const completedJobCards = jobCards.filter((j: any) => j.status === 'In Process');
+                          const allSuggestions = [
+                            ...completedJobCards.map((j: any) => ({
+                              type: 'jobcard',
+                              id: j.id,
+                              jobCardNo: j.jobCardNo,
+                              customerName: j.customerName,
+                              vehicleNo: j.vehicleNo,
+                              phone: j.phone,
+                              label: `${j.jobCardNo} - ${j.customerName} - ${j.vehicleNo}`
+                            }))
+                          ].filter(item => 
+                            item.label.toLowerCase().includes(val.toLowerCase())
+                          );
+
+                          // Filter for unique labels
+                          const uniqueSuggestions = allSuggestions.filter((item, index, self) =>
+                            index === self.findIndex((t) => t.label === item.label)
+                          );
+
+                          setCustomerSuggestions(uniqueSuggestions);
+                          setShowSuggestions(true);
+                        } else {
+                          setCustomerSuggestions([]);
+                          setShowSuggestions(false);
+                        }
+                      }}
+                      onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                    />
+                    {showSuggestions && (
+                      <div className="absolute z-50 w-full bg-white border border-gray-200 rounded-xl shadow-2xl mt-1 max-h-60 overflow-y-auto no-scrollbar">
+                        {customerSuggestions.length > 0 ? (
+                          customerSuggestions.map((item, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b last:border-0 transition-colors"
+                              onClick={() => {
+                                setCustomerSearch(item.customerName);
+                                const form = document.querySelector('form');
+                                if (form) {
+                                  const phoneInput = form.querySelector('input[name="phone"]') as HTMLInputElement;
+                                  const vehicleInput = form.querySelector('input[name="vehicleNo"]') as HTMLInputElement;
+                                  const jobCardInput = form.querySelector('input[name="jobCardNo"]') as HTMLInputElement;
+                                  if (phoneInput) phoneInput.value = item.phone || '';
+                                  if (vehicleInput) vehicleInput.value = item.vehicleNo || '';
+                                  if (jobCardInput) jobCardInput.value = item.jobCardNo || '';
+                                }
+                                setShowSuggestions(false);
+                              }}
+                            >
+                              <p className="font-bold text-gray-800">{item.label}</p>
+                              <p className="text-[10px] text-gray-400 uppercase tracking-widest">From Job Card</p>
+                            </button>
+                          ))
+                        ) : (
+                          <div className="px-4 py-3 text-sm text-gray-400 italic">No matching record found</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <Input label="Phone No" name="phone" />
+                  <Input label="Vehicle No" name="vehicleNo" />
+                  <Select label="Payment Type" name="paymentType" required>
+                    <option value="Cash">Cash</option>
+                    <option value="UPI">UPI / GPay / PhonePe</option>
+                    <option value="Credit">Credit</option>
+                  </Select>
                 </div>
 
                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-4">
@@ -1049,6 +1145,7 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
                             <th className="px-4 py-2 text-left">Rack</th>
                             <th className="px-4 py-2 text-center">Qty</th>
                             <th className="px-4 py-2 text-right">Rate</th>
+                            <th className="px-4 py-2 text-center">GST %</th>
                             <th className="px-4 py-2 text-right">Total</th>
                             <th className="px-4 py-2 text-center">Action</th>
                           </tr>
@@ -1063,7 +1160,8 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
                               <td className="px-4 py-2 text-primary font-bold">{item.rackNo || '-'}</td>
                               <td className="px-4 py-2 text-center">{item.quantity}</td>
                               <td className="px-4 py-2 text-right">{formatCurrency(item.rate)}</td>
-                              <td className="px-4 py-2 text-right font-bold">{formatCurrency(item.quantity * item.rate)}</td>
+                              <td className="px-4 py-2 text-center text-gray-500">{item.gst}%</td>
+                              <td className="px-4 py-2 text-right font-bold">{formatCurrency(item.quantity * item.rate * (1 + item.gst / 100))}</td>
                               <td className="px-4 py-2 text-center">
                                 <button type="button" onClick={() => removeSaleItem(idx)} className="text-red-500 hover:text-red-700">
                                   Remove
@@ -1075,12 +1173,33 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
                         <tfoot className="bg-gray-50 font-bold">
                           {(() => {
                             const subtotal = saleItems.reduce((sum, item) => sum + (item.quantity * item.rate), 0);
+                            const totalGst = saleItems.reduce((sum, item) => {
+                              const itemTotal = item.quantity * item.rate;
+                              const gstAmount = itemTotal * (item.gst / 100);
+                              return sum + gstAmount;
+                            }, 0);
+                            const cgst = totalGst / 2;
+                            const sgst = totalGst / 2;
+                            const grandTotal = subtotal + totalGst;
+
                             return (
-                              <tr className="text-lg border-t">
-                                <td colSpan={7} className="px-4 py-2 text-right">Grand Total:</td>
-                                <td className="px-4 py-2 text-right text-primary">{formatCurrency(subtotal)}</td>
-                                <td></td>
-                              </tr>
+                              <>
+                                <tr className="border-t">
+                                  <td colSpan={8} className="px-4 py-1 text-right text-gray-500 font-normal">CGST:</td>
+                                  <td className="px-4 py-1 text-right">{formatCurrency(cgst)}</td>
+                                  <td></td>
+                                </tr>
+                                <tr>
+                                  <td colSpan={8} className="px-4 py-1 text-right text-gray-500 font-normal">SGST:</td>
+                                  <td className="px-4 py-1 text-right">{formatCurrency(sgst)}</td>
+                                  <td></td>
+                                </tr>
+                                <tr className="text-lg border-t bg-primary/5">
+                                  <td colSpan={8} className="px-4 py-2 text-right">Grand Total:</td>
+                                  <td className="px-4 py-2 text-right text-primary">{formatCurrency(grandTotal)}</td>
+                                  <td></td>
+                                </tr>
+                              </>
                             );
                           })()}
                         </tfoot>
@@ -1096,7 +1215,7 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
             </div>
             <div className="space-y-6">
               <div className="flex justify-between items-center px-2">
-                <h3 className="text-xl font-bold text-gray-800">Recent Sales</h3>
+                <h3 className="text-xl font-bold text-gray-800">Today's Sales</h3>
                 <div className="w-64">
                   <Input 
                     placeholder="Search sales..." 
@@ -1108,9 +1227,15 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
               </div>
                <DataTable 
                 columns={[
-                  { key: 'invoiceNo', label: 'Invoice' },
+                  { key: 'invoiceNo', label: 'Invoice No' },
                   { key: 'date', label: 'Date' },
                   { key: 'customer', label: 'Customer' },
+                  { key: 'source', label: 'Source', render: (val, row) => (
+                    <span className={cn(
+                      "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase",
+                      (val === 'Job Card' || row.invoiceNo?.startsWith('SB-')) ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700"
+                    )}>{val || (row.invoiceNo?.startsWith('SB-') ? 'Job Card' : 'Direct Sale')}</span>
+                  )},
                   { key: 'model', label: 'Model/Items' },
                   { key: 'total', label: 'Total', render: (val) => formatCurrency(val) },
                   { key: 'actions', label: 'Send', render: (_, row) => (
@@ -1279,6 +1404,11 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
               </Select>
               <Input name="quantity" label="Quantity" type="number" defaultValue={editingItem?.quantity} required />
               <Input name="rate" label="Rate" type="number" defaultValue={editingItem?.rate} required />
+              <Select label="Payment Type" name="paymentType" defaultValue={editingItem?.paymentType} required>
+                <option value="Cash">Cash</option>
+                <option value="UPI">UPI / GPay / PhonePe</option>
+                <option value="Credit">Credit</option>
+              </Select>
             </div>
           )}
           {activeTab === 'payments' && (

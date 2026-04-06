@@ -88,20 +88,22 @@ export interface AutoProduct {
 
 export interface JobCard {
   id: string;
+  jobCardNo: number;
   customerName: string;
   phone: string;
   vehicleNo: string;
-  model: string;
-  km: number;
-  dailyRunning: number;
-  fromKm: number;
-  toKm: number;
-  problem: string;
-  mechanicId?: string;
-  status: 'Pending' | 'In Progress' | 'Completed';
-  partsPurchased: string[];
+  vehicleModel: string;
+  kmReading: number;
+  problemDescription: string;
+  paymentType: 'Cash' | 'Credit' | 'UPI';
+  status: 'In Process' | 'Completed';
   serviceCharges: number;
+  partsCharges: number;
+  additionalChargesLabel?: string;
+  totalAmount: number;
   date: string;
+  mechanicId?: string;
+  workStatus?: string;
 }
 
 export interface Mechanic {
@@ -123,4 +125,7 @@ export interface Transaction {
   description: string;
   amount: number;
   type: 'Debit' | 'Credit';
+  voucherType: 'Receipt' | 'Payment' | 'Contra' | 'Journal';
+  paymentMode: 'Cash' | 'Bank';
+  referenceNo?: string;
 }

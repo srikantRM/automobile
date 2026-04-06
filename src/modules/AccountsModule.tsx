@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Plus, 
   Search,
@@ -10,11 +10,17 @@ import {
   Printer,
   ArrowUpRight,
   ArrowDownRight,
-  Wallet
+  Wallet,
+  Receipt,
+  CreditCard,
+  Banknote,
+  Calendar,
+  Filter,
+  Download
 } from 'lucide-react';
 import { Button, Input, DataTable, Modal, Select } from '../components/UI';
 import { formatCurrency, formatDate, cn } from '../lib/utils';
-import { Transaction } from '../types';
+import { Transaction, AccountHead } from '../types';
 import { useData } from '../hooks/useData';
 
 interface AccountsModuleProps {
@@ -25,7 +31,11 @@ export const AccountsModule: React.FC<AccountsModuleProps> = ({ activeTab }) => 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [dateFilter, setDateFilter] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedLedgerHead, setSelectedLedgerHead] = useState<string>('');
+
   const { data: transactions, saveData: saveTransaction, updateData: updateTransaction, deleteData: deleteTransaction } = useData<Transaction>('transactions');
+  const { data: accountHeads, saveData: saveAccountHead, deleteData: deleteAccountHead } = useData<AccountHead>('account_heads');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,131 +43,337 @@ export const AccountsModule: React.FC<AccountsModuleProps> = ({ activeTab }) => 
     const data = Object.fromEntries(formData.entries());
 
     try {
+      const voucherType = data.voucherType as any;
+      const amount = Number(data.amount);
+      
+      // Determine Debit/Credit based on voucher type
+      // Receipt: Credit the Income/Asset head, Debit Cash/Bank
+      // Payment: Debit the Expense/Liability head, Credit Cash/Bank
+      // For simplicity in this flat structure, we store the main head and its type
+      let type: 'Debit' | 'Credit' = 'Debit';
+      if (voucherType === 'Receipt') type = 'Credit';
+      else if (voucherType === 'Payment') type = 'Debit';
+      else if (voucherType === 'Contra') {
+        // Contra is special, but let's treat it as a transfer
+        type = data.contraType === 'Deposit' ? 'Debit' : 'Credit';
+      }
+
       if (editingItem) {
         await updateTransaction(editingItem.id, {
           ...editingItem,
           date: data.date as string,
           headId: data.headId as string,
-          amount: Number(data.amount),
-          type: data.type === 'Credit (Inflow)' ? 'Credit' : 'Debit',
+          amount,
+          type,
+          voucherType,
+          paymentMode: data.paymentMode as any,
           description: data.description as string,
+          referenceNo: data.referenceNo as string,
         } as Transaction);
       } else {
         const newTransaction: Transaction = {
           id: Math.random().toString(36).substr(2, 9),
           date: data.date as string,
           headId: data.headId as string,
-          amount: Number(data.amount),
-          type: data.type === 'Credit (Inflow)' ? 'Credit' : 'Debit',
+          amount,
+          type,
+          voucherType,
+          paymentMode: data.paymentMode as any,
           description: data.description as string,
+          referenceNo: data.referenceNo as string,
         };
         await saveTransaction(newTransaction);
       }
 
-      (e.target as HTMLFormElement).reset();
-      alert('Transaction recorded successfully!');
       setIsModalOpen(false);
       setEditingItem(null);
     } catch (error) {
       console.error('Error saving transaction:', error);
-      alert('Failed to record transaction.');
     }
   };
 
+  const stats = useMemo(() => {
+    const cashIn = transactions.filter(t => t.paymentMode === 'Cash' && t.type === 'Credit').reduce((sum, t) => sum + t.amount, 0);
+    const cashOut = transactions.filter(t => t.paymentMode === 'Cash' && t.type === 'Debit').reduce((sum, t) => sum + t.amount, 0);
+    const bankIn = transactions.filter(t => t.paymentMode === 'Bank' && t.type === 'Credit').reduce((sum, t) => sum + t.amount, 0);
+    const bankOut = transactions.filter(t => t.paymentMode === 'Bank' && t.type === 'Debit').reduce((sum, t) => sum + t.amount, 0);
+    
+    return {
+      cashBalance: cashIn - cashOut,
+      bankBalance: bankIn - bankOut,
+      totalIncome: transactions.filter(t => t.type === 'Credit').reduce((sum, t) => sum + t.amount, 0),
+      totalExpense: transactions.filter(t => t.type === 'Debit').reduce((sum, t) => sum + t.amount, 0)
+    };
+  }, [transactions]);
+
   const renderContent = () => {
     switch (activeTab) {
-      case 'cashbook':
+      case 'vouchers':
         return (
           <div className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-green-50 p-6 rounded-2xl border border-green-100">
-                <p className="text-xs font-bold text-green-600 uppercase tracking-widest">Total Inflow</p>
-                <h4 className="text-2xl font-bold text-green-700 mt-1">{formatCurrency(transactions.filter(t => t.type === 'Credit').reduce((acc, t) => acc + t.amount, 0))}</h4>
-              </div>
-              <div className="bg-red-50 p-6 rounded-2xl border border-red-100">
-                <p className="text-xs font-bold text-red-600 uppercase tracking-widest">Total Outflow</p>
-                <h4 className="text-2xl font-bold text-red-700 mt-1">{formatCurrency(transactions.filter(t => t.type === 'Debit').reduce((acc, t) => acc + t.amount, 0))}</h4>
-              </div>
-              <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100">
-                <p className="text-xs font-bold text-blue-600 uppercase tracking-widest">Closing Balance</p>
-                <h4 className="text-2xl font-bold text-blue-700 mt-1">{formatCurrency(transactions.filter(t => t.type === 'Credit').reduce((acc, t) => acc + t.amount, 0) - transactions.filter(t => t.type === 'Debit').reduce((acc, t) => acc + t.amount, 0))}</h4>
-              </div>
-            </div>
-
-            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-6">
-              <h3 className="font-bold text-gray-800 border-b pb-4">New Transaction Entry</h3>
-              <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
-                <Input name="date" label="Date" type="date" defaultValue={new Date().toISOString().split('T')[0]} required />
-                <Select name="headId" label="Account Head" required>
-                  <option value="">Select Head</option>
-                  <option value="Sales">Sales</option>
-                  <option value="Service">Service</option>
-                  <option value="Purchase">Purchase</option>
-                  <option value="Rent">Rent</option>
-                  <option value="Salary">Salary</option>
-                  <option value="Electricity">Electricity</option>
-                  <option value="Other">Other</option>
-                </Select>
-                <Input name="amount" label="Amount" type="number" required />
-                <Select name="type" label="Transaction Type" required>
-                  <option value="Credit (Inflow)">Credit (Inflow)</option>
-                  <option value="Debit (Outflow)">Debit (Outflow)</option>
-                </Select>
-                <div className="md:col-span-3">
-                  <Input name="description" label="Description" placeholder="Enter details..." required />
-                </div>
-                <div className="flex justify-end">
-                  <Button type="submit" icon={<Plus size={18} />}>Record Entry</Button>
-                </div>
-              </form>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {[
+                { label: 'Receipt Voucher', type: 'Receipt', color: 'bg-green-600', icon: ArrowDownRight, desc: 'Record all incoming money' },
+                { label: 'Payment Voucher', type: 'Payment', color: 'bg-red-600', icon: ArrowUpRight, desc: 'Record all outgoing money' },
+                { label: 'Contra Voucher', type: 'Contra', color: 'bg-blue-600', icon: Wallet, desc: 'Cash/Bank transfers' },
+                { label: 'Journal Voucher', type: 'Journal', color: 'bg-purple-600', icon: Book, desc: 'Non-cash adjustments' },
+              ].map((v) => (
+                <button 
+                  key={v.type}
+                  onClick={() => { setEditingItem({ voucherType: v.type }); setIsModalOpen(true); }}
+                  className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all text-left group"
+                >
+                  <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center text-white mb-3", v.color)}>
+                    <v.icon size={20} />
+                  </div>
+                  <h4 className="font-bold text-gray-800">{v.label}</h4>
+                  <p className="text-xs text-gray-500 mt-1">{v.desc}</p>
+                </button>
+              ))}
             </div>
 
             <div className="space-y-4">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 px-2">
-                <h3 className="text-xl font-bold text-gray-800">Cash Transactions</h3>
-                <div className="w-full md:w-64">
+              <div className="flex justify-between items-center px-2">
+                <h3 className="text-xl font-bold text-gray-800">Recent Vouchers</h3>
+                <div className="flex gap-2">
                   <Input 
-                    placeholder="Search transactions..." 
-                    icon={<Search size={16} />} 
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    type="date" 
+                    value={dateFilter} 
+                    onChange={(e) => setDateFilter(e.target.value)}
+                    className="w-40 h-9 text-sm"
                   />
                 </div>
               </div>
               <DataTable 
                 columns={[
                   { key: 'date', label: 'Date', render: (val) => formatDate(val) },
-                  { key: 'description', label: 'Description' },
-                  { key: 'type', label: 'Type', render: (val) => (
+                  { key: 'voucherType', label: 'Voucher Type', render: (val) => (
                     <span className={cn(
-                      "flex items-center gap-1 font-bold",
-                      val === 'Credit' ? "text-green-600" : "text-red-600"
-                    )}>
-                      {val === 'Credit' ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
-                      {val}
-                    </span>
+                      "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase",
+                      val === 'Receipt' ? "bg-green-100 text-green-700" :
+                      val === 'Payment' ? "bg-red-100 text-red-700" :
+                      val === 'Contra' ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"
+                    )}>{val}</span>
                   )},
+                  { key: 'headId', label: 'Account Head' },
+                  { key: 'description', label: 'Description' },
+                  { key: 'paymentMode', label: 'Mode' },
                   { key: 'amount', label: 'Amount', render: (val) => formatCurrency(val) },
                 ]}
-                data={transactions.filter(t => 
-                  t.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                  t.headId.toLowerCase().includes(searchQuery.toLowerCase())
-                )}
+                data={transactions.filter(t => t.date === dateFilter)}
                 onEdit={(row) => { setEditingItem(row); setIsModalOpen(true); }}
                 onDelete={(row) => {
-                  if (confirm('Are you sure you want to delete this entry?')) {
-                    deleteTransaction(row.id);
-                  }
+                  if (confirm('Delete this voucher?')) deleteTransaction(row.id);
                 }}
-                onPrint={(row) => window.print()}
               />
             </div>
           </div>
         );
+
+      case 'daybook':
+        return (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center px-2">
+              <h3 className="text-xl font-bold text-gray-800">Day Book</h3>
+              <div className="flex gap-4">
+                <Input 
+                  type="date" 
+                  value={dateFilter} 
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  className="w-40"
+                />
+                <Button variant="outline" icon={<Printer size={16} />} onClick={() => window.print()}>Print Day Book</Button>
+              </div>
+            </div>
+            <DataTable 
+              columns={[
+                { key: 'date', label: 'Date', render: (val) => formatDate(val) },
+                { key: 'voucherType', label: 'Vch Type' },
+                { key: 'headId', label: 'Particulars' },
+                { key: 'description', label: 'Narration' },
+                { key: 'debit', label: 'Debit (Out)', render: (_, row) => row.type === 'Debit' ? formatCurrency(row.amount) : '-' },
+                { key: 'credit', label: 'Credit (In)', render: (_, row) => row.type === 'Credit' ? formatCurrency(row.amount) : '-' },
+              ]}
+              data={transactions.filter(t => t.date === dateFilter)}
+            />
+            <div className="bg-gray-50 p-4 rounded-xl flex justify-end gap-12 font-bold text-gray-800 border border-gray-200">
+              <div>Total Debit: {formatCurrency(transactions.filter(t => t.date === dateFilter && t.type === 'Debit').reduce((s, t) => s + t.amount, 0))}</div>
+              <div>Total Credit: {formatCurrency(transactions.filter(t => t.date === dateFilter && t.type === 'Credit').reduce((s, t) => s + t.amount, 0))}</div>
+            </div>
+          </div>
+        );
+
+      case 'cashbank':
+        return (
+          <div className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-4">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 bg-green-100 text-green-600 rounded-xl"><Wallet size={24} /></div>
+                    <div>
+                      <h4 className="font-bold text-gray-800">Cash in Hand</h4>
+                      <p className="text-xs text-gray-500">Current Balance</p>
+                    </div>
+                  </div>
+                  <div className="text-2xl font-bold text-green-600">{formatCurrency(stats.cashBalance)}</div>
+                </div>
+                <div className="pt-4 border-t space-y-2">
+                  <div className="flex justify-between text-sm"><span>Total Cash Inflow</span><span className="text-green-600 font-medium">+{formatCurrency(transactions.filter(t => t.paymentMode === 'Cash' && t.type === 'Credit').reduce((s, t) => s + t.amount, 0))}</span></div>
+                  <div className="flex justify-between text-sm"><span>Total Cash Outflow</span><span className="text-red-600 font-medium">-{formatCurrency(transactions.filter(t => t.paymentMode === 'Cash' && t.type === 'Debit').reduce((s, t) => s + t.amount, 0))}</span></div>
+                </div>
+              </div>
+              <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-4">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 bg-blue-100 text-blue-600 rounded-xl"><Banknote size={24} /></div>
+                    <div>
+                      <h4 className="font-bold text-gray-800">Bank Balance</h4>
+                      <p className="text-xs text-gray-500">Current Balance</p>
+                    </div>
+                  </div>
+                  <div className="text-2xl font-bold text-blue-600">{formatCurrency(stats.bankBalance)}</div>
+                </div>
+                <div className="pt-4 border-t space-y-2">
+                  <div className="flex justify-between text-sm"><span>Total Bank Inflow</span><span className="text-green-600 font-medium">+{formatCurrency(transactions.filter(t => t.paymentMode === 'Bank' && t.type === 'Credit').reduce((s, t) => s + t.amount, 0))}</span></div>
+                  <div className="flex justify-between text-sm"><span>Total Bank Outflow</span><span className="text-red-600 font-medium">-{formatCurrency(transactions.filter(t => t.paymentMode === 'Bank' && t.type === 'Debit').reduce((s, t) => s + t.amount, 0))}</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-xl font-bold text-gray-800 px-2">Cash & Bank Transactions</h3>
+              <DataTable 
+                columns={[
+                  { key: 'date', label: 'Date', render: (val) => formatDate(val) },
+                  { key: 'paymentMode', label: 'Mode' },
+                  { key: 'headId', label: 'Particulars' },
+                  { key: 'type', label: 'Type', render: (val) => (
+                    <span className={cn("font-bold", val === 'Credit' ? "text-green-600" : "text-red-600")}>{val}</span>
+                  )},
+                  { key: 'amount', label: 'Amount', render: (val) => formatCurrency(val) },
+                ]}
+                data={transactions}
+              />
+            </div>
+          </div>
+        );
+
+      case 'ledger':
+        return (
+          <div className="space-y-6">
+            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col md:flex-row gap-6 items-end">
+              <div className="flex-1">
+                <Select 
+                  label="Select Account Ledger" 
+                  value={selectedLedgerHead} 
+                  onChange={(e) => setSelectedLedgerHead(e.target.value)}
+                >
+                  <option value="">Choose an account...</option>
+                  {accountHeads.map(h => <option key={h.id} value={h.name}>{h.name}</option>)}
+                </Select>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" icon={<Printer size={18} />} onClick={() => window.print()}>Print Ledger</Button>
+                <Button variant="secondary" icon={<Download size={18} />}>Export</Button>
+              </div>
+            </div>
+
+            {selectedLedgerHead && (
+              <div className="space-y-4 animate-in fade-in duration-300">
+                <div className="flex justify-between items-center px-2">
+                  <h3 className="text-xl font-bold text-gray-800">Ledger: {selectedLedgerHead}</h3>
+                </div>
+                <DataTable 
+                  columns={[
+                    { key: 'date', label: 'Date', render: (val) => formatDate(val) },
+                    { key: 'voucherType', label: 'Vch Type' },
+                    { key: 'description', label: 'Narration' },
+                    { key: 'debit', label: 'Debit', render: (_, row) => row.type === 'Debit' ? formatCurrency(row.amount) : '-' },
+                    { key: 'credit', label: 'Credit', render: (_, row) => row.type === 'Credit' ? formatCurrency(row.amount) : '-' },
+                    { key: 'balance', label: 'Balance', render: (_, row, index) => {
+                      const ledgerTransactions = transactions.filter(t => t.headId === selectedLedgerHead);
+                      const currentIdx = ledgerTransactions.findIndex(t => t.id === row.id);
+                      const balance = ledgerTransactions.slice(0, currentIdx + 1).reduce((s, t) => s + (t.type === 'Credit' ? t.amount : -t.amount), 0);
+                      return formatCurrency(balance);
+                    }},
+                  ]}
+                  data={transactions.filter(t => t.headId === selectedLedgerHead)}
+                />
+              </div>
+            )}
+          </div>
+        );
+
+      case 'trial':
+        return (
+          <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm max-w-5xl mx-auto space-y-8">
+            <div className="text-center border-b pb-6">
+              <h2 className="text-2xl font-bold text-gray-800 uppercase tracking-tight">Trial Balance</h2>
+              <p className="text-sm text-gray-500">As on {formatDate(new Date().toISOString())}</p>
+            </div>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b-2 border-gray-800">
+                  <th className="text-left py-3 px-4">Particulars</th>
+                  <th className="text-right py-3 px-4">Debit Amount</th>
+                  <th className="text-right py-3 px-4">Credit Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {accountHeads.map(head => {
+                  const headTransactions = transactions.filter(t => t.headId === head.name);
+                  const balance = headTransactions.reduce((s, t) => s + (t.type === 'Credit' ? t.amount : -t.amount), 0);
+                  if (balance === 0) return null;
+                  return (
+                    <tr key={head.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="py-3 px-4 font-medium">{head.name}</td>
+                      <td className="py-3 px-4 text-right">{balance < 0 ? formatCurrency(Math.abs(balance)) : '-'}</td>
+                      <td className="py-3 px-4 text-right">{balance > 0 ? formatCurrency(balance) : '-'}</td>
+                    </tr>
+                  );
+                })}
+                {/* Cash & Bank Balances */}
+                <tr className="border-b border-gray-100 hover:bg-gray-50">
+                  <td className="py-3 px-4 font-medium italic">Cash in Hand</td>
+                  <td className="py-3 px-4 text-right">{stats.cashBalance > 0 ? formatCurrency(stats.cashBalance) : '-'}</td>
+                  <td className="py-3 px-4 text-right">{stats.cashBalance < 0 ? formatCurrency(Math.abs(stats.cashBalance)) : '-'}</td>
+                </tr>
+                <tr className="border-b border-gray-100 hover:bg-gray-50">
+                  <td className="py-3 px-4 font-medium italic">Bank Balance</td>
+                  <td className="py-3 px-4 text-right">{stats.bankBalance > 0 ? formatCurrency(stats.bankBalance) : '-'}</td>
+                  <td className="py-3 px-4 text-right">{stats.bankBalance < 0 ? formatCurrency(Math.abs(stats.bankBalance)) : '-'}</td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-gray-800 font-bold bg-gray-50">
+                  <td className="py-4 px-4">Grand Total</td>
+                  <td className="py-4 px-4 text-right">
+                    {formatCurrency(
+                      accountHeads.reduce((s, h) => {
+                        const b = transactions.filter(t => t.headId === h.name).reduce((sum, t) => sum + (t.type === 'Credit' ? t.amount : -t.amount), 0);
+                        return s + (b < 0 ? Math.abs(b) : 0);
+                      }, 0) + (stats.cashBalance > 0 ? stats.cashBalance : 0) + (stats.bankBalance > 0 ? stats.bankBalance : 0)
+                    )}
+                  </td>
+                  <td className="py-4 px-4 text-right">
+                    {formatCurrency(
+                      accountHeads.reduce((s, h) => {
+                        const b = transactions.filter(t => t.headId === h.name).reduce((sum, t) => sum + (t.type === 'Credit' ? t.amount : -t.amount), 0);
+                        return s + (b > 0 ? b : 0);
+                      }, 0) + (stats.cashBalance < 0 ? Math.abs(stats.cashBalance) : 0) + (stats.bankBalance < 0 ? Math.abs(stats.bankBalance) : 0)
+                    )}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        );
+
       case 'pl':
-        const income = transactions.filter(t => t.type === 'Credit').reduce((acc, t) => acc + t.amount, 0);
-        const expenses = transactions.filter(t => t.type === 'Debit').reduce((acc, t) => acc + t.amount, 0);
-        const netProfit = income - expenses;
+        const incomeHeads = accountHeads.filter(h => h.type === 'Income');
+        const expenseHeads = accountHeads.filter(h => h.type === 'Expense');
+        const netProfit = stats.totalIncome - stats.totalExpense;
 
         return (
           <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm max-w-4xl mx-auto space-y-8">
@@ -169,38 +385,36 @@ export const AccountsModule: React.FC<AccountsModuleProps> = ({ activeTab }) => 
               <div className="space-y-4">
                 <h4 className="font-bold text-gray-400 uppercase text-xs tracking-widest border-b pb-2">Expenses</h4>
                 <div className="space-y-3">
-                  {['Purchase', 'Rent', 'Salary', 'Electricity', 'Other'].map(head => {
-                    const amount = transactions.filter(t => t.type === 'Debit' && t.headId.includes(head)).reduce((acc, t) => acc + t.amount, 0);
-                    if (amount === 0 && head !== 'Other') return null;
+                  {expenseHeads.map(head => {
+                    const amount = transactions.filter(t => t.headId === head.name).reduce((s, t) => s + t.amount, 0);
                     return (
-                      <div key={head} className="flex justify-between text-sm">
-                        <span>{head} Expense</span>
+                      <div key={head.id} className="flex justify-between text-sm">
+                        <span>{head.name}</span>
                         <span className="font-medium">{formatCurrency(amount)}</span>
                       </div>
                     );
                   })}
                   <div className="pt-4 border-t flex justify-between font-bold text-gray-800">
                     <span>Total Expenses</span>
-                    <span>{formatCurrency(expenses)}</span>
+                    <span>{formatCurrency(stats.totalExpense)}</span>
                   </div>
                 </div>
               </div>
               <div className="space-y-4">
                 <h4 className="font-bold text-gray-400 uppercase text-xs tracking-widest border-b pb-2">Income</h4>
                 <div className="space-y-3">
-                  {['Sales', 'Service', 'Other'].map(head => {
-                    const amount = transactions.filter(t => t.type === 'Credit' && t.headId.includes(head)).reduce((acc, t) => acc + t.amount, 0);
-                    if (amount === 0 && head !== 'Other') return null;
+                  {incomeHeads.map(head => {
+                    const amount = transactions.filter(t => t.headId === head.name).reduce((s, t) => s + t.amount, 0);
                     return (
-                      <div key={head} className="flex justify-between text-sm">
-                        <span>{head} Revenue</span>
+                      <div key={head.id} className="flex justify-between text-sm">
+                        <span>{head.name}</span>
                         <span className="font-medium">{formatCurrency(amount)}</span>
                       </div>
                     );
                   })}
                   <div className="pt-4 border-t flex justify-between font-bold text-gray-800">
                     <span>Total Income</span>
-                    <span>{formatCurrency(income)}</span>
+                    <span>{formatCurrency(stats.totalIncome)}</span>
                   </div>
                 </div>
               </div>
@@ -212,16 +426,13 @@ export const AccountsModule: React.FC<AccountsModuleProps> = ({ activeTab }) => 
               <span className="text-lg font-bold uppercase tracking-wider">{netProfit >= 0 ? 'Net Profit' : 'Net Loss'}</span>
               <span className="text-3xl font-bold">{formatCurrency(Math.abs(netProfit))}</span>
             </div>
-            <div className="flex justify-center gap-4">
-              <Button icon={<Printer size={18} />} onClick={() => window.print()}>Print Statement</Button>
-              <Button variant="secondary" icon={<FileText size={18} />}>Export PDF</Button>
-            </div>
           </div>
         );
+
       case 'balance':
-        const totalAssets = transactions.filter(t => t.type === 'Credit').reduce((acc, t) => acc + t.amount, 0);
-        const totalLiabilities = transactions.filter(t => t.type === 'Debit').reduce((acc, t) => acc + t.amount, 0);
-        const cashInHand = totalAssets - totalLiabilities;
+        const assetHeads = accountHeads.filter(h => h.type === 'Asset');
+        const liabilityHeads = accountHeads.filter(h => h.type === 'Liability');
+        const profit = stats.totalIncome - stats.totalExpense;
 
         return (
           <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm max-w-4xl mx-auto space-y-8">
@@ -233,99 +444,61 @@ export const AccountsModule: React.FC<AccountsModuleProps> = ({ activeTab }) => 
               <div className="space-y-4">
                 <h4 className="font-bold text-gray-400 uppercase text-xs tracking-widest border-b pb-2">Liabilities & Equity</h4>
                 <div className="space-y-3">
-                  <div className="flex justify-between text-sm"><span>Capital Account</span><span className="font-medium">{formatCurrency(500000)}</span></div>
-                  <div className="flex justify-between text-sm"><span>Retained Earnings</span><span className="font-medium">{formatCurrency(cashInHand)}</span></div>
-                  <div className="pt-4 border-t flex justify-between font-bold text-gray-800"><span>Total Liabilities</span><span>{formatCurrency(500000 + cashInHand)}</span></div>
+                  {liabilityHeads.map(head => {
+                    const balance = transactions.filter(t => t.headId === head.name).reduce((s, t) => s + (t.type === 'Credit' ? t.amount : -t.amount), 0);
+                    return (
+                      <div key={head.id} className="flex justify-between text-sm">
+                        <span>{head.name}</span>
+                        <span className="font-medium">{formatCurrency(Math.abs(balance))}</span>
+                      </div>
+                    );
+                  })}
+                  <div className="flex justify-between text-sm"><span>Profit & Loss A/c</span><span className="font-medium">{formatCurrency(profit)}</span></div>
+                  <div className="pt-4 border-t flex justify-between font-bold text-gray-800">
+                    <span>Total Liabilities</span>
+                    <span>{formatCurrency(profit + liabilityHeads.reduce((s, h) => s + Math.abs(transactions.filter(t => t.headId === h.name).reduce((sum, t) => sum + (t.type === 'Credit' ? t.amount : -t.amount), 0)), 0))}</span>
+                  </div>
                 </div>
               </div>
               <div className="space-y-4">
                 <h4 className="font-bold text-gray-400 uppercase text-xs tracking-widest border-b pb-2">Assets</h4>
                 <div className="space-y-3">
-                  <div className="flex justify-between text-sm"><span>Fixed Assets</span><span className="font-medium">{formatCurrency(420000)}</span></div>
-                  <div className="flex justify-between text-sm"><span>Cash-in-hand</span><span className="font-medium">{formatCurrency(80000 + cashInHand)}</span></div>
-                  <div className="pt-4 border-t flex justify-between font-bold text-gray-800"><span>Total Assets</span><span>{formatCurrency(500000 + cashInHand)}</span></div>
+                  {assetHeads.map(head => {
+                    const balance = transactions.filter(t => t.headId === head.name).reduce((s, t) => s + (t.type === 'Credit' ? t.amount : -t.amount), 0);
+                    return (
+                      <div key={head.id} className="flex justify-between text-sm">
+                        <span>{head.name}</span>
+                        <span className="font-medium">{formatCurrency(Math.abs(balance))}</span>
+                      </div>
+                    );
+                  })}
+                  <div className="flex justify-between text-sm"><span>Cash in Hand</span><span className="font-medium">{formatCurrency(stats.cashBalance)}</span></div>
+                  <div className="flex justify-between text-sm"><span>Bank Balance</span><span className="font-medium">{formatCurrency(stats.bankBalance)}</span></div>
+                  <div className="pt-4 border-t flex justify-between font-bold text-gray-800">
+                    <span>Total Assets</span>
+                    <span>{formatCurrency(stats.cashBalance + stats.bankBalance + assetHeads.reduce((s, h) => s + Math.abs(transactions.filter(t => t.headId === h.name).reduce((sum, t) => sum + (t.type === 'Credit' ? t.amount : -t.amount), 0)), 0))}</span>
+                  </div>
                 </div>
               </div>
             </div>
-            <div className="flex justify-center gap-4">
-              <Button icon={<Printer size={18} />} onClick={() => window.print()}>Print Sheet</Button>
-              <Button variant="secondary" icon={<FileText size={18} />}>Export PDF</Button>
-            </div>
           </div>
         );
-      case 'ledger':
-        return (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center px-2">
-              <h3 className="text-xl font-bold text-gray-800">General Ledger</h3>
-              <div className="flex gap-4">
-                <Select className="w-48">
-                  <option>All Accounts</option>
-                  <option>Sales Income</option>
-                  <option>Service Income</option>
-                  <option>Purchase Expense</option>
-                </Select>
-                <div className="w-64">
-                  <Input 
-                    placeholder="Search ledger..." 
-                    icon={<Search size={16} />} 
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                </div>
-              </div>
-            </div>
-            <DataTable 
-              columns={[
-                { key: 'date', label: 'Date', render: (val) => formatDate(val) },
-                { key: 'headId', label: 'Account Head' },
-                { key: 'description', label: 'Description' },
-                { key: 'debit', label: 'Debit', render: (_, row) => row.type === 'Debit' ? formatCurrency(row.amount) : '-' },
-                { key: 'credit', label: 'Credit', render: (_, row) => row.type === 'Credit' ? formatCurrency(row.amount) : '-' },
-                { key: 'balance', label: 'Balance', render: (_, row, index) => {
-                  const prevBalance = transactions.slice(index + 1).reduce((acc, t) => acc + (t.type === 'Credit' ? t.amount : -t.amount), 0);
-                  return formatCurrency(prevBalance + (row.type === 'Credit' ? row.amount : -row.amount));
-                }},
-              ]}
-              data={transactions.filter(t => 
-                t.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                t.headId.toLowerCase().includes(searchQuery.toLowerCase())
-              )}
-              onPrint={(row) => window.print()}
-            />
-          </div>
-        );
-      case 'heads':
-        const { data: accountHeads, saveData: saveAccountHead, deleteData: deleteAccountHead } = useData<any>('account_heads');
-        
-        const handleAddHead = async (e: React.FormEvent) => {
-          e.preventDefault();
-          const formData = new FormData(e.currentTarget as HTMLFormElement);
-          const name = formData.get('name') as string;
-          const type = formData.get('type') as string;
-          
-          if (!name || !type) return;
-          
-          try {
-            await saveAccountHead({
-              id: Math.random().toString(36).substr(2, 9),
-              name,
-              type,
-              balance: 0
-            });
-            (e.target as HTMLFormElement).reset();
-            alert('Account head added successfully!');
-          } catch (error) {
-            console.error('Error adding account head:', error);
-            alert('Failed to add account head.');
-          }
-        };
 
+      case 'heads':
         return (
           <div className="space-y-8">
             <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-6">
               <h3 className="font-bold text-gray-800 border-b pb-4">Add Account Head</h3>
-              <form onSubmit={handleAddHead} className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget as HTMLFormElement);
+                await saveAccountHead({
+                  id: Math.random().toString(36).substr(2, 9),
+                  name: formData.get('name') as string,
+                  type: formData.get('type') as any,
+                });
+                (e.target as HTMLFormElement).reset();
+              }} className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
                 <Input label="Head Name" name="name" placeholder="e.g. Office Rent" required />
                 <Select label="Head Type" name="type" required>
                   <option value="Income">Income</option>
@@ -339,31 +512,26 @@ export const AccountsModule: React.FC<AccountsModuleProps> = ({ activeTab }) => 
               </form>
             </div>
             <div className="space-y-4">
-              <h3 className="text-xl font-bold text-gray-800 px-2">Account Heads List</h3>
+              <h3 className="text-xl font-bold text-gray-800 px-2">Chart of Accounts</h3>
               <DataTable 
                 columns={[
                   { key: 'name', label: 'Head Name' },
                   { key: 'type', label: 'Type' },
-                  { key: 'balance', label: 'Current Balance', render: (val) => formatCurrency(val || 0) },
+                  { key: 'balance', label: 'Current Balance', render: (_, row) => {
+                    const balance = transactions.filter(t => t.headId === row.name).reduce((s, t) => s + (t.type === 'Credit' ? t.amount : -t.amount), 0);
+                    return formatCurrency(Math.abs(balance));
+                  }},
                 ]}
-                data={accountHeads.length > 0 ? accountHeads : [
-                  { id: '1', name: 'Sales Income', type: 'Income', balance: 0 },
-                  { id: '2', name: 'Service Income', type: 'Income', balance: 0 },
-                  { id: '3', name: 'Purchase Expense', type: 'Expense', balance: 0 },
-                  { id: '4', name: 'Rent Expense', type: 'Expense', balance: 0 },
-                  { id: '5', name: 'Salary Expense', type: 'Expense', balance: 0 },
-                ]}
+                data={accountHeads}
                 onDelete={(row) => {
-                  if (confirm('Are you sure you want to delete this account head?')) {
-                    deleteAccountHead(row.id);
-                  }
+                  if (confirm('Delete this account head?')) deleteAccountHead(row.id);
                 }}
               />
             </div>
           </div>
         );
       default:
-        return <div className="p-12 text-center text-gray-400 italic">Module under development...</div>;
+        return null;
     }
   };
 
@@ -376,32 +544,40 @@ export const AccountsModule: React.FC<AccountsModuleProps> = ({ activeTab }) => 
       <Modal 
         isOpen={isModalOpen} 
         onClose={() => { setIsModalOpen(false); setEditingItem(null); }} 
-        title={editingItem ? "Edit Transaction" : "New Cash Transaction"}
+        title={`${editingItem?.voucherType || 'New'} Voucher Entry`}
       >
         <form onSubmit={handleSubmit} className="space-y-6">
+          <input type="hidden" name="voucherType" value={editingItem?.voucherType} />
           <div className="grid grid-cols-2 gap-4">
             <Input name="date" label="Date" type="date" defaultValue={editingItem?.date || new Date().toISOString().split('T')[0]} required />
+            <Input name="referenceNo" label="Ref / Bill No" defaultValue={editingItem?.referenceNo} placeholder="Optional" />
+            
             <Select name="headId" label="Account Head" defaultValue={editingItem?.headId} required>
-              <option value="">Select Head</option>
-              <option value="Sales Income">Sales Income</option>
-              <option value="Service Income">Service Income</option>
-              <option value="Purchase Expense">Purchase Expense</option>
-              <option value="Rent Expense">Rent Expense</option>
-              <option value="Salary Expense">Salary Expense</option>
-              <option value="Other">Other</option>
+              <option value="">Select Account...</option>
+              {accountHeads.map(h => <option key={h.id} value={h.name}>{h.name}</option>)}
             </Select>
+
+            <Select name="paymentMode" label="Payment Mode" defaultValue={editingItem?.paymentMode || 'Cash'} required>
+              <option value="Cash">Cash</option>
+              <option value="Bank">Bank / Online</option>
+            </Select>
+
             <Input name="amount" label="Amount" type="number" defaultValue={editingItem?.amount} required />
-            <Select name="type" label="Transaction Type" defaultValue={editingItem?.type === 'Credit' ? 'Credit (Inflow)' : 'Debit (Outflow)'} required>
-              <option value="Credit (Inflow)">Credit (Inflow)</option>
-              <option value="Debit (Outflow)">Debit (Outflow)</option>
-            </Select>
+            
+            {editingItem?.voucherType === 'Contra' && (
+              <Select name="contraType" label="Transfer Type" required>
+                <option value="Deposit">Cash to Bank (Deposit)</option>
+                <option value="Withdrawal">Bank to Cash (Withdrawal)</option>
+              </Select>
+            )}
+
             <div className="col-span-2">
-              <Input name="description" label="Description" defaultValue={editingItem?.description} placeholder="Enter transaction details..." required />
+              <Input name="description" label="Narration / Description" defaultValue={editingItem?.description} placeholder="Enter transaction details..." required />
             </div>
           </div>
           <div className="flex justify-end gap-3 pt-6 border-t">
             <Button variant="secondary" onClick={() => { setIsModalOpen(false); setEditingItem(null); }}>Cancel</Button>
-            <Button type="submit">Save Changes</Button>
+            <Button type="submit">Save Voucher</Button>
           </div>
         </form>
       </Modal>

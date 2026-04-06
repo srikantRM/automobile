@@ -78,11 +78,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       { id: 'reminders', label: 'Vehicle Reminder', icon: Bell },
     ],
     accounts: [
-      { id: 'cashbook', label: 'Daily Cash Book', icon: Wallet },
+      { id: 'vouchers', label: 'Voucher Entry', icon: Receipt },
+      { id: 'daybook', label: 'Day Book', icon: Book },
+      { id: 'cashbank', label: 'Cash / Bank Book', icon: Wallet },
+      { id: 'ledger', label: 'General Ledger', icon: Layers },
+      { id: 'trial', label: 'Trial Balance', icon: Scale },
       { id: 'pl', label: 'Profit & Loss', icon: PieChart },
       { id: 'balance', label: 'Balance Sheet', icon: Scale },
-      { id: 'ledger', label: 'General Ledger', icon: Book },
-      { id: 'heads', label: 'Account Heads', icon: Layers },
+      { id: 'heads', label: 'Chart of Accounts', icon: Layers },
     ],
     dashboard: [] // Should not be accessible via sidebar in this mode
   };
