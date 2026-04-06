@@ -35,6 +35,7 @@ import {
   Pie, 
   Cell 
 } from 'recharts';
+import { toast } from 'sonner';
 import { Button, Input, DataTable, Modal, Select } from '../components/UI';
 import { formatCurrency, formatDate, cn } from '../lib/utils';
 import { InverterProduct, Customer, Supplier } from '../types';
@@ -149,7 +150,7 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
           await updatePurchaseOrder(editingItem.id, { ...editingItem, ...data } as any);
         } else {
           if (orderItems.length === 0) {
-            alert('Please add at least one product to the order.');
+            toast.error('Please add at least one product to the order.');
             return;
           }
           const totalAmount = orderItems.reduce((sum, item) => sum + (item.quantity * item.rate), 0);
@@ -170,7 +171,7 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
           await updatePurchase(editingItem.id, { ...editingItem, ...data } as any);
         } else {
           if (orderItems.length === 0) {
-            alert('Please add at least one product.');
+            toast.error('Please add at least one product to the invoice.');
             return;
           }
           const totalAmount = orderItems.reduce((sum, item) => sum + (item.quantity * item.rate), 0);
@@ -199,7 +200,7 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
           await updateSale(editingItem.id, { ...editingItem, ...data } as any);
         } else {
           if (orderItems.length === 0) {
-            alert('Please add at least one product.');
+            toast.error('Please add at least one product to the order.');
             return;
           }
           const subtotal = orderItems.reduce((sum, item) => sum + (item.quantity * item.rate), 0);
@@ -231,13 +232,13 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
         }
       }
 
-      alert('Data saved successfully!');
+      toast.success('Data saved successfully!');
       (e.target as HTMLFormElement).reset();
       setIsModalOpen(false);
       setEditingItem(null);
     } catch (error) {
       console.error('Error saving data:', error);
-      alert('Failed to save data. Please check your connection.');
+      toast.error('Failed to save data. Please check your connection.');
     }
   };
 
@@ -246,7 +247,7 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
   };
 
   const simulateSend = (type: 'Email' | 'WhatsApp', row: any) => {
-    alert(`Simulating sending ${type} to ${row.name || row.customerName || 'recipient'}...`);
+    toast.info(`Simulating sending ${type} to ${row.name || row.customerName || 'recipient'}...`);
   };
 
   const [salesForm, setSalesForm] = useState({ quantity: 0, rate: 0 });
@@ -447,16 +448,16 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
         const handleAddSaleItem = () => {
           const current = currentOrderItemRef.current;
           if (!current.productId || current.quantity <= 0) {
-            alert('Please select a product and enter a valid quantity.');
+            toast.error('Please select a product and enter a valid quantity.');
             return;
           }
           const product = products.find(p => p.id === current.productId);
           if (!product) {
-            alert('Product not found.');
+            toast.error('Product not found.');
             return;
           }
           if (product.stock < current.quantity) {
-            alert(`Insufficient stock! Available: ${product.stock}`);
+            toast.error(`Insufficient stock! Available: ${product.stock}`);
             return;
           }
           const newItem = {
@@ -712,12 +713,12 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
         const handleAddOrderItem = () => {
           const current = currentOrderItemRef.current;
           if (!current.productId || current.quantity <= 0) {
-            alert('Please select a product and enter a valid quantity.');
+            toast.error('Please select a product and enter a valid quantity.');
             return;
           }
           const product = products.find(p => p.id === current.productId);
           if (!product) {
-            alert('Product not found.');
+            toast.error('Product not found.');
             return;
           }
           const newItem = {
@@ -933,12 +934,12 @@ export const InverterModule: React.FC<InverterModuleProps> = ({ activeTab }) => 
         const handleAddPurchaseItem = () => {
           const current = currentOrderItemRef.current;
           if (!current.productId || current.quantity <= 0) {
-            alert('Please select a product and enter a valid quantity.');
+            toast.error('Please select a product and enter a valid quantity.');
             return;
           }
           const product = products.find(p => p.id === current.productId);
           if (!product) {
-            alert('Product not found.');
+            toast.error('Product not found.');
             return;
           }
           const newItem = {

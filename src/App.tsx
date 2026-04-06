@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Plus } from 'lucide-react';
+import { Toaster } from 'sonner';
 import { Sidebar, Header } from './components/Layout';
 import { ModuleSelection } from './components/ModuleSelection';
 import { InverterModule } from './modules/InverterModule';
@@ -139,6 +140,7 @@ export default function App() {
           }
         }
       `}} />
+      <Toaster position="top-right" richColors />
     </div>
   );
 }

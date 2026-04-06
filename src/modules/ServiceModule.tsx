@@ -12,6 +12,7 @@ import {
   Car,
   X
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button, Input, DataTable, Modal, Select } from '../components/UI';
 import { formatCurrency, formatDate, cn } from '../lib/utils';
 import { JobCard, Mechanic } from '../types';
@@ -145,12 +146,12 @@ export const ServiceModule: React.FC<ServiceModuleProps> = ({ activeTab }) => {
       }
 
       (e.target as HTMLFormElement).reset();
-      alert('Data saved successfully!');
+      toast.success('Data saved successfully!');
       setIsModalOpen(false);
       setEditingItem(null);
     } catch (error) {
       console.error('Error saving data:', error);
-      alert('Failed to save data.');
+      toast.error('Failed to save data.');
     }
   };
 
@@ -294,6 +295,7 @@ export const ServiceModule: React.FC<ServiceModuleProps> = ({ activeTab }) => {
                   j.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                   j.jobCardNo?.toString().includes(searchQuery)
                 )}
+                onPrint={(row) => window.print()}
               />
             )}
           </div>
@@ -320,6 +322,7 @@ export const ServiceModule: React.FC<ServiceModuleProps> = ({ activeTab }) => {
                   deleteMechanic(row.id);
                 }
               }}
+              onPrint={(row) => window.print()}
             />
           </div>
         );
@@ -448,6 +451,7 @@ export const ServiceModule: React.FC<ServiceModuleProps> = ({ activeTab }) => {
                   j.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                   j.jobCardNo?.toString().includes(searchQuery)
                 )}
+                onPrint={(row) => window.print()}
               />
             )}
           </div>
@@ -514,6 +518,7 @@ export const ServiceModule: React.FC<ServiceModuleProps> = ({ activeTab }) => {
                     )}
                   ]}
                   data={jobCards.filter(j => j.status === 'In Process')}
+                  onPrint={(row) => window.print()}
                 />
               </div>
             )}
@@ -550,6 +555,7 @@ export const ServiceModule: React.FC<ServiceModuleProps> = ({ activeTab }) => {
                 )}
               ]}
               data={jobCards}
+              onPrint={(row) => window.print()}
             />
           </div>
         );

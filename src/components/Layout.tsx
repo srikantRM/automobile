@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, 
   Battery, 
@@ -28,7 +28,8 @@ import {
   Scale,
   Book,
   Layers,
-  Plus
+  Plus,
+  Database
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { ModuleType } from '../types';
@@ -40,6 +41,40 @@ interface SidebarProps {
   setActiveSubTab: (tab: string) => void;
   onBackToSelection: () => void;
 }
+
+const DatabaseStatus = () => {
+  const [status, setStatus] = useState<{ status: string; type: string; host: string } | null>(null);
+
+  useEffect(() => {
+    const fetchStatus = async () => {
+      try {
+        const res = await fetch('/api/db-status');
+        const data = await res.json();
+        setStatus(data);
+      } catch (err) {
+        console.error('Failed to fetch DB status');
+      }
+    };
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (!status) return null;
+
+  return (
+    <div className={cn(
+      "flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all",
+      status.type === 'mysql' 
+        ? "bg-green-50 text-green-700 border-green-200 shadow-sm" 
+        : "bg-amber-50 text-amber-700 border-amber-200"
+    )}>
+      <Database size={12} className={status.type === 'mysql' ? "animate-pulse" : ""} />
+      <span>{status.type === 'mysql' ? 'Cloud DB' : 'Local Storage'}</span>
+      <span className="opacity-50 hidden md:inline">| {status.host}</span>
+    </div>
+  );
+};
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
   activeModule, 
@@ -190,6 +225,7 @@ export const Header: React.FC<HeaderProps> = ({ activeModule, onMenuClick }) => 
         <h2 className="text-lg font-semibold text-gray-800 capitalize">
           {activeModule.replace('-', ' ')}
         </h2>
+        <DatabaseStatus />
       </div>
 
       <div className="flex items-center gap-3 md:gap-6">

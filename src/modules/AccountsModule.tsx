@@ -18,6 +18,7 @@ import {
   Filter,
   Download
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button, Input, DataTable, Modal, Select } from '../components/UI';
 import { formatCurrency, formatDate, cn } from '../lib/utils';
 import { Transaction, AccountHead } from '../types';
@@ -87,8 +88,10 @@ export const AccountsModule: React.FC<AccountsModuleProps> = ({ activeTab }) => 
 
       setIsModalOpen(false);
       setEditingItem(null);
+      toast.success('Transaction saved successfully!');
     } catch (error) {
       console.error('Error saving transaction:', error);
+      toast.error('Failed to save transaction.');
     }
   };
 
@@ -165,6 +168,7 @@ export const AccountsModule: React.FC<AccountsModuleProps> = ({ activeTab }) => 
                 onDelete={(row) => {
                   if (confirm('Delete this voucher?')) deleteTransaction(row.id);
                 }}
+                onPrint={(row) => window.print()}
               />
             </div>
           </div>
@@ -195,6 +199,7 @@ export const AccountsModule: React.FC<AccountsModuleProps> = ({ activeTab }) => 
                 { key: 'credit', label: 'Credit (In)', render: (_, row) => row.type === 'Credit' ? formatCurrency(row.amount) : '-' },
               ]}
               data={transactions.filter(t => t.date === dateFilter)}
+              onPrint={(row) => window.print()}
             />
             <div className="bg-gray-50 p-4 rounded-xl flex justify-end gap-12 font-bold text-gray-800 border border-gray-200">
               <div>Total Debit: {formatCurrency(transactions.filter(t => t.date === dateFilter && t.type === 'Debit').reduce((s, t) => s + t.amount, 0))}</div>
@@ -299,6 +304,7 @@ export const AccountsModule: React.FC<AccountsModuleProps> = ({ activeTab }) => 
                     }},
                   ]}
                   data={transactions.filter(t => t.headId === selectedLedgerHead)}
+                  onPrint={(row) => window.print()}
                 />
               </div>
             )}

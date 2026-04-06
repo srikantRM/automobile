@@ -12,6 +12,7 @@ import {
   Mail,
   MessageSquare
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button, Input, DataTable, Modal, Select } from '../components/UI';
 import { formatCurrency, cn } from '../lib/utils';
 import { AutoProduct, Supplier } from '../types';
@@ -113,12 +114,12 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
   const handleAddOrderItem = () => {
     const current = currentOrderItemRef.current;
     if (!current.productId || current.quantity <= 0) {
-      alert('Please select a product and enter a valid quantity.');
+      toast.error('Please select a product and enter a valid quantity.');
       return;
     }
     const product = products.find(p => p.id === current.productId);
     if (!product) {
-      alert('Product not found.');
+      toast.error('Product not found.');
       return;
     }
     const newItem = {
@@ -142,12 +143,12 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
   const handleAddPurchaseItem = () => {
     const current = currentPurchaseItemRef.current;
     if (!current.productId || current.quantity <= 0) {
-      alert('Please select a product and enter a valid quantity.');
+      toast.error('Please select a product and enter a valid quantity.');
       return;
     }
     const product = products.find(p => p.id === current.productId);
     if (!product) {
-      alert('Product not found.');
+      toast.error('Product not found.');
       return;
     }
     const newItem = {
@@ -171,18 +172,18 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
   const handleAddSaleItem = () => {
     const current = currentSaleItemRef.current;
     if (!current.productId || current.quantity <= 0) {
-      alert('Please select a product and enter a valid quantity.');
+      toast.error('Please select a product and enter a valid quantity.');
       return;
     }
 
     const product = products.find(p => p.id === current.productId);
     if (!product) {
-      alert('Product not found.');
+      toast.error('Product not found.');
       return;
     }
 
     if (product.stock < current.quantity) {
-      alert(`Insufficient stock! Only ${product.stock} available.`);
+      toast.error(`Insufficient stock! Only ${product.stock} available.`);
       return;
     }
 
@@ -256,7 +257,7 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
           await updateOrder(editingItem.id, { ...editingItem, ...data, total: Number(data.quantity) * Number(data.rate) } as any);
         } else {
           if (orderItems.length === 0) {
-            alert('Please add at least one product to the order.');
+            toast.error('Please add at least one product to the order.');
             return;
           }
           const totalAmount = orderItems.reduce((sum, item) => sum + (item.quantity * item.rate), 0);
@@ -277,7 +278,7 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
           await updatePurchase(editingItem.id, { ...editingItem, ...data, total: Number(data.quantity) * Number(data.purchaseRate) } as any);
         } else {
           if (purchaseItems.length === 0) {
-            alert('Please add at least one product to the purchase.');
+            toast.error('Please add at least one product to the purchase.');
             return;
           }
           const totalAmount = purchaseItems.reduce((sum, item) => sum + (item.quantity * item.rate), 0);
@@ -307,7 +308,7 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
           await updateSale(editingItem.id, { ...editingItem, ...data, total: Number(data.quantity) * Number(data.rate) } as any);
         } else {
           if (saleItems.length === 0) {
-            alert('Please add at least one product to the invoice.');
+            toast.error('Please add at least one product to the invoice.');
             return;
           }
           const totalAmount = saleItems.reduce((sum, item) => {
@@ -359,18 +360,18 @@ export const AutoModule: React.FC<AutoModuleProps> = ({ activeTab }) => {
         }
       }
 
-      alert('Data saved successfully!');
+      toast.success('Data saved successfully!');
       (e.target as HTMLFormElement).reset();
       setIsModalOpen(false);
       setEditingItem(null);
     } catch (error) {
       console.error('Error saving data:', error);
-      alert('Failed to save data.');
+      toast.error('Failed to save data.');
     }
   };
 
   const simulateSend = (type: 'Email' | 'WhatsApp', row: any) => {
-    alert(`Simulating sending ${type} to ${row.supplier || 'supplier'}...`);
+    toast.info(`Simulating sending ${type} to ${row.supplier || 'supplier'}...`);
   };
 
   const renderContent = () => {

@@ -1,0 +1,187 @@
+{
+  "entities": {
+    "InverterProduct": {
+      "title": "Inverter Product",
+      "description": "Product details for inverter batteries",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "productCode": { "type": "string" },
+        "barcode": { "type": "string" },
+        "name": { "type": "string" },
+        "model": { "type": "string" },
+        "capacity": { "type": "string" },
+        "guarantee": { "type": "string" },
+        "gst": { "type": "number" },
+        "warranty": { "type": "string" },
+        "hsnCode": { "type": "string" },
+        "extra": { "type": "string" },
+        "servicePeriod": { "type": "number" },
+        "minQty": { "type": "number" },
+        "stock": { "type": "number" },
+        "sellingPrice": { "type": "number" },
+        "purchasePrice": { "type": "number" }
+      },
+      "required": ["id", "name", "productCode"]
+    },
+    "AutoProduct": {
+      "title": "Auto Product",
+      "description": "Product details for automobile parts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "barcode": { "type": "string" },
+        "hsnCode": { "type": "string" },
+        "name": { "type": "string" },
+        "company": { "type": "string" },
+        "model": { "type": "string" },
+        "partNo": { "type": "string" },
+        "lowQty": { "type": "number" },
+        "gst": { "type": "number" },
+        "rackNo": { "type": "string" },
+        "purchaseRate": { "type": "number" },
+        "mrp": { "type": "number" },
+        "stock": { "type": "number" }
+      },
+      "required": ["id", "name", "barcode"]
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "Customer details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerCode": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" }
+      },
+      "required": ["id", "name", "phone"]
+    },
+    "Supplier": {
+      "title": "Supplier",
+      "description": "Supplier details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "supplierCode": { "type": "string" },
+        "name": { "type": "string" },
+        "address": { "type": "string" },
+        "contactNo": { "type": "string" },
+        "gstNo": { "type": "string" },
+        "city": { "type": "string" },
+        "state": { "type": "string" },
+        "email": { "type": "string" },
+        "balance": { "type": "number" }
+      },
+      "required": ["id", "name", "contactNo"]
+    },
+    "JobCard": {
+      "title": "Job Card",
+      "description": "Vehicle service job card",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "jobCardNo": { "type": "number" },
+        "customerName": { "type": "string" },
+        "phone": { "type": "string" },
+        "vehicleNo": { "type": "string" },
+        "vehicleModel": { "type": "string" },
+        "kmReading": { "type": "number" },
+        "problemDescription": { "type": "string" },
+        "paymentType": { "type": "string" },
+        "status": { "type": "string" },
+        "serviceCharges": { "type": "number" },
+        "partsCharges": { "type": "number" },
+        "additionalChargesLabel": { "type": "string" },
+        "totalAmount": { "type": "number" },
+        "date": { "type": "string" },
+        "mechanicId": { "type": "string" },
+        "workStatus": { "type": "string" }
+      },
+      "required": ["id", "jobCardNo", "customerName", "vehicleNo"]
+    },
+    "Mechanic": {
+      "title": "Mechanic",
+      "description": "Mechanic details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" }
+      },
+      "required": ["id", "name"]
+    },
+    "AccountHead": {
+      "title": "Account Head",
+      "description": "Financial account head",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string" }
+      },
+      "required": ["id", "name", "type"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Financial transaction",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "headId": { "type": "string" },
+        "description": { "type": "string" },
+        "amount": { "type": "number" },
+        "type": { "type": "string" },
+        "voucherType": { "type": "string" },
+        "paymentMode": { "type": "string" },
+        "referenceNo": { "type": "string" }
+      },
+      "required": ["id", "date", "amount", "type"]
+    },
+    "Sale": {
+      "title": "Sale",
+      "description": "Sale transaction",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "invoiceNo": { "type": "string" },
+        "date": { "type": "string" },
+        "customerId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "totalAmount": { "type": "number" },
+        "paymentMode": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "invoiceNo", "date"]
+    },
+    "Purchase": {
+      "title": "Purchase",
+      "description": "Purchase transaction",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "invoiceNo": { "type": "string" },
+        "date": { "type": "string" },
+        "supplierId": { "type": "string" },
+        "supplierName": { "type": "string" },
+        "totalAmount": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "invoiceNo", "date"]
+    }
+  },
+  "firestore": {
+    "inverter_products": { "schema": "InverterProduct", "description": "Collection of inverter products" },
+    "auto_products": { "schema": "AutoProduct", "description": "Collection of auto products" },
+    "customers": { "schema": "Customer", "description": "Collection of customers" },
+    "suppliers": { "schema": "Supplier", "description": "Collection of suppliers" },
+    "job_cards": { "schema": "JobCard", "description": "Collection of service job cards" },
+    "mechanics": { "schema": "Mechanic", "description": "Collection of mechanics" },
+    "account_heads": { "schema": "AccountHead", "description": "Collection of financial account heads" },
+    "transactions": { "schema": "Transaction", "description": "Collection of financial transactions" },
+    "sales": { "schema": "Sale", "description": "Collection of sales" },
+    "purchases": { "schema": "Purchase", "description": "Collection of purchases" }
+  }
+}
